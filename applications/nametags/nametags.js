@@ -11,7 +11,6 @@
 
   "use strict";
   let user_nametags = {};
-  let maximum_name_length = 50;
   let last_camera_mode = Camera.mode;
 
   // Settings
@@ -104,9 +103,91 @@
   // Helper functions
   //
 
+  const MAX_LINE_WIDTH = 1;
+  const MAX_WORD_WIDTH = 0.5;
+  const MIN_WORD_LENGTH = 5;
+  const MAX_LINES = 3;
+  /*
+   * Takes the displayName and inserts linebreaks
+   * where appropriate to keep it under a certain
+   * width when displayed on the user's nametag.
+   */
+  function calculateLines(textEntityId, text) {
+    const words = text.split(/\s+/);
+    const lines = [];
+    let currentLine = '';
+    let lineCount = 0;
+
+    // Iterate over each word to check the line length with each word appended
+    // If it becomes too long, creates a new line with that that word and
+    // continues; for very long words will instead iterate over each character
+    // and will insert a line break in the middle of the word where appropriate.
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      let testLine = currentLine ?
+                        `${currentLine} ${word}`
+                        : word;
+      let lineSize = Entities.textSize(textEntityId, testLine);
+
+      if (lineSize.width <= MAX_LINE_WIDTH) {
+        currentLine = testLine;
+      } else {
+        if (lineCount >= MAX_LINES) break;
+
+        // But what if a single word is too long?
+        let wordSize = Entities.textSize(textEntityId, word);
+        if (wordSize.width >= MAX_WORD_WIDTH) {
+          let sub = ' ';
+          charCount = 0;
+          for (const char of word) {
+            charCount++;
+            testLine = `${currentLine}${sub+char}`
+            const testWord = currentLine + ' ' + sub + char;
+            lineSize = Entities.textSize(textEntityId, testLine);
+            if (lineSize.width <= MAX_LINE_WIDTH) {
+              sub = sub+char;
+            } else {
+              if (charCount >= MIN_WORD_LENGTH) {
+                lines.push(testLine);
+                lineCount++;
+                if (lineCount >= MAX_LINES) break;
+                sub = '';
+                currentLine = sub;
+              } else {
+                lines.push(currentLine);
+                lineCount++;
+                if (lineCount >= MAX_LINES) break;
+                sub = sub+char;
+                currentLine = '';
+              }
+            }
+          }
+          currentLine = sub;
+        } else {
+          lines.push(currentLine);
+          lineCount++;
+
+          if (lineCount >= MAX_LINES) break;
+
+          currentLine = word;
+        }
+      }
+    }
+
+    if (currentLine && (lineCount < MAX_LINES)) {
+      lines.push(currentLine);
+    }
+
+    if (lineCount === MAX_LINES) {
+      lines[MAX_LINES-1] = lines[MAX_LINES-1]+"...";
+    }
+
+    return lines;
+  }
+
   // Avatar display name as shown on nametags
   function _displayName(user) {
-    return user.displayName ? user.displayName.substring(0, maximum_name_length) : "Anonymous"
+    return user.displayName ? user.displayName : "Anonymous"
   }
 
   // There is no built in way to know if an avatar
@@ -123,15 +204,21 @@
 
   // Nametag position for use in creating or adjusting nametag entities
   function _nametagPosition(user) {
+    const user_uuid = user.sessionUUID;
     const headJointIndex = user.getJointIndex("Head");
     const jointInObjectFrame = user.getAbsoluteJointTranslationInObjectFrame(headJointIndex);
+    scale = user.scale;
+    const nameTagHeight = user_nametags[user_uuid].size.height
+    const newY = jointInObjectFrame.y + 0.4*Math.max(0.4, Math.min(scale, 4)) + (nameTagHeight/2)
+    print(`User ${user.displayName}${user_uuid} Head: ${headJointIndex}, y: ${jointInObjectFrame.y} scale: ${scale}, newY: ${newY}`);
     return Vec3.sum(user.position,
                     {
                       x: 0.01,
-                      y: jointInObjectFrame.y + 0.4*Math.max(0.4, Math.min(user.scale, 4)),
-                    z: 0,
+                      y: newY,
+                      z: 0,
                     });
   }
+
 
   // ContextMenu helpers
   //
@@ -228,7 +315,14 @@
 
     console.log(`Registering ${display_name} (${user_uuid}) nametag`);
 
-    user_nametags[user_uuid] = { text: {}, background: {}, scale: user.scale, displayName: display_name, skeletonModelURL: user.skeletonModelURL };
+    user_nametags[user_uuid] = {
+      text: {},
+      background: {},
+      scale: user.scale,
+      displayName: display_name,
+      skeletonModelURL: user.skeletonModelURL,
+      size: {}
+    };
 
     user_nametags[user_uuid].text = Entities.addEntity(
       {
@@ -271,16 +365,16 @@
       "local"
     );
 
-    if (!_hasAvatarLoaded(user)) {
-      // Avatar has not finished loading yet;
-      //  we'll reposition when it's ready.
-      print("Avatar is not loaded yet. Will retry...");
-      _adjustNametagPosition(user_uuid);
-    }
-
     // We need to have this on a timeout because "textSize" can not be determined instantly after the entity was created.
     // https://apidocs.overte.org/Entities.html#.textSize
     Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
+
+    if (!_hasAvatarLoaded(user) || !user_nametags[user_uuid].size.height) {
+      // Avatar has not finished loading yet;
+      //  we'll reposition when it's ready.
+      print("Avatar is not loaded yet. Will retry...");
+      Script.setTimeout(() => {_adjustNametagPosition(user_uuid)}, 200);
+    }
   }
 
   function _MonitorAvatarLoading(user) {
@@ -341,6 +435,7 @@
       user_nametags[user_uuid].displayName = newName;
       // Adjust nametag size to accomodate new displayName
       _adjustNametagSize(user_uuid);
+      _adjustNametagPosition(user_uuid);
     }
   }
 
@@ -368,9 +463,14 @@
     if (!_hasAvatarLoaded(user)) {
       // Avatar has not finished loading yet;
       //  we'll reposition when it's ready.
-      print("Avatar is not loaded yet. Will retry...");
+      print(`${user_uuid}Avatar is not loaded yet. Will retry...`);
       _MonitorAvatarLoading(user);
       return
+    } else if (!user_nametags[user_uuid].size.height) {
+      print(`${user_uuid}Height not computed yet. Waiting...`);
+      Script.setTimeout(() => {
+        _adjustNametagPosition(user_uuid);
+      }, 100);
     }
 
     Entities.editEntity(user_nametags[user_uuid].text, {
@@ -381,8 +481,10 @@
   // Resize user's nametag entity
   function _adjustNametagSize(user_uuid) {
     const user = AvatarList.getAvatar(user_uuid);
-    const display_name = _displayName(user);
-    let textSize = Entities.textSize(user_nametags[user_uuid].text, display_name);
+    const displayName = _displayName(user);
+    const displayNameLines = calculateLines(user_nametags[user_uuid].text, displayName);
+    const displayNameString = displayNameLines.join('\n');
+    let textSize = Entities.textSize(user_nametags[user_uuid].text, displayNameString);
 
     if (textSize.width === 0 || textSize.height === 0) {
       // Text size cannot be calculated immediately after entity creation;
@@ -390,31 +492,38 @@
       Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
       return;
     } else if (textSize.height <= 0.08
-            || textSize.height >= 0.2
+            || textSize.height >= 0.2*displayNameLines.length
             || textSize.height === null) {
       // Text size returns unexpected values during entity
       // creation. When entity sizes are too large, too small
       // or invalid we ignore them.
       // See https://github.com/overte-org/overte/issues/1897.
-      print(`!!! Text size for ${display_name} is an unexpected ${JSON.stringify(textSize)}; Not sizing yet.`);
+      print(`!!! Text size for ${displayName} is an unexpected ${JSON.stringify(textSize)}; Not sizing yet.`);
       Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
       return;
     } else {
-      print(`Text size for ${display_name} is ${JSON.stringify(textSize)}`);
+      print(`Text size for ${displayName} is ${JSON.stringify(textSize)}`);
     }
+
+
+    let newWidth = textSize.width + 0.25;
+    let newHeight = textSize.height + 0.07;
+    user_nametags[user_uuid].size.width = newWidth
+    user_nametags[user_uuid].size.height = newHeight
 
     Entities.editEntity(user_nametags[user_uuid].text,
                         {
+                          text: displayNameString,
                           dimensions: {
-                            x: textSize.width + 0.25,
-                            y: textSize.height + 0.07,
+                            x: newWidth,
+                            y: newHeight,
                             z: 0.1,
                           }
                         });
     Entities.editEntity(user_nametags[user_uuid].background,
                         {
                           dimensions: {
-                            x: Math.max(textSize.width + 0.25, 0.6),
+                            x: Math.max(newWidth, 0.6),
                         y: textSize.height + 0.05,
                         z: 0.1,
                           },
