@@ -413,6 +413,7 @@
       skeletonModelURL: user.skeletonModelURL,
       size: {},
       enlarged: false,
+      visible: false,
     };
 
     _createNametagEntity(user_uuid,
@@ -499,8 +500,15 @@
     if (user.scale !== user_nametags[user_uuid].scale) {
       // Avatar is rescaling...
 
-      // TODO: Hide nametag until done
-
+      if (user_nametags[user_uuid].visible === true) {
+        Entities.editEntity(user_nametags[user_uuid].text, {
+          visible: false,
+        });
+        Entities.editEntity(user_nametags[user_uuid].background, {
+          visible: false,
+        });
+        user_nametags[user_uuid].visible = false;
+      }
 
       user_nametags[user_uuid].scale = user.scale
       user_nametags[user_uuid].rescaling = true;
@@ -585,6 +593,7 @@
     Entities.editEntity(user_nametags[user_uuid].background, {
       visible: true,
     });
+    user_nametags[user_uuid].visible = true
   }
 
   // Resize user's nametag entity
