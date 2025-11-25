@@ -16,13 +16,25 @@
   // Settings
   let visible = Settings.getValue("Nametags_toggle", true);
   let visibleSelf = Settings.getValue("Nametags_toggleself", false);
+  let optionClickable = Settings.getValue("Nametags_toggleclick", true);
+  let optionScale = false; //Settings.getValue("Nametags_togglescale", true);
 
   const COLOUR_ENABLED = "lightgreen";
   const COLOUR_DISABLED = "red";
   const COLOUR_INACTIVE = [128, 128, 128];
 
-  const MENU_VISIBLE_MENU = "View";
-  const MENU_VISIBLE_NAME = "Nametags";
+  const MENU_ROOT = "View"
+  const MENU_SUBMENU = "Nametags"
+  const MENU_VIEW_SUBMENU = `${MENU_ROOT} > ${MENU_SUBMENU}`
+
+  const MENU_VISIBLE_NAME = "Always shown";
+  const MENU_VISIBLESELF_NAME = "Show my nametag";
+  const MENU_CLICKABLE_NAME = "Click avatar to show/expand";
+  const MENU_SCALE_NAME = "Scale with avatar";
+
+  DEFAULT_ENTITY_DIMENSIONS = { x: 0.8, y: 0.2, z: 0.1 };
+  DEFAULT_LINE_HEIGHT = 0.1;
+  ENLARGED_MULTIPLIER = 4;
 
   _updateList();
 
@@ -30,6 +42,7 @@
   AvatarManager.avatarRemovedEvent.connect(_removeUser); // User disconnected
   AvatarManager.avatarSessionChangedEvent.connect(_avatarSessionChanged);
   Script.update.connect(_adjustNametags); // Delta time
+  Controller.mousePressEvent.connect(_onMousePress);
 
   Script.scriptEnding.connect(_scriptEnding); // Script was uninstalled
   Menu.menuItemEvent.connect(_handleMenuClick); // Toggle the nametag
@@ -48,13 +61,38 @@
   });
   tabletButton.clicked.connect(_toggleState);
 
-  // Menu item
+  // View menu
+  //
+
+  Menu.addMenu(MENU_VIEW_SUBMENU);
+
   Menu.addMenuItem({
-    menuName: MENU_VISIBLE_MENU,
+    menuName: MENU_VIEW_SUBMENU,
     menuItemName: MENU_VISIBLE_NAME,
     shortcutKey: "CTRL+N",
     isCheckable: true,
     isChecked: visible,
+  });
+
+  Menu.addMenuItem({
+    menuName: MENU_VIEW_SUBMENU,
+    menuItemName: MENU_VISIBLESELF_NAME,
+    isCheckable: true,
+    isChecked: visibleSelf,
+  });
+
+  Menu.addMenuItem({
+    menuName: MENU_VIEW_SUBMENU,
+    menuItemName: MENU_CLICKABLE_NAME,
+    isCheckable: true,
+    isChecked: optionClickable,
+  });
+
+  Menu.addMenuItem({
+    menuName: MENU_VIEW_SUBMENU,
+    menuItemName: MENU_SCALE_NAME,
+    isCheckable: true,
+    isChecked: optionScale,
   });
 
 
@@ -112,7 +150,8 @@
    * where appropriate to keep it under a certain
    * width when displayed on the user's nametag.
    */
-  function calculateLines(textEntityId, text) {
+  function calculateLines(user_uuid, text) {
+    const textEntityId = user_nametags[user_uuid].text
     const words = text.split(/\s+/);
     const lines = [];
     let currentLine = '';
@@ -129,7 +168,9 @@
                         : word;
       let lineSize = Entities.textSize(textEntityId, testLine);
 
-      if (lineSize.width <= MAX_LINE_WIDTH) {
+      maxLineWidth = MAX_LINE_WIDTH * _enlargedMultiplier(user_uuid);
+
+      if (lineSize.width <= maxLineWidth) {
         currentLine = testLine;
       } else {
         if (lineCount >= MAX_LINES) break;
@@ -144,7 +185,7 @@
             testLine = `${currentLine}${sub+char}`
             const testWord = currentLine + ' ' + sub + char;
             lineSize = Entities.textSize(textEntityId, testLine);
-            if (lineSize.width <= MAX_LINE_WIDTH) {
+            if (lineSize.width <= maxLineWidth) {
               sub = sub+char;
             } else {
               if (charCount >= MIN_WORD_LENGTH) {
@@ -202,9 +243,17 @@
     && user.getAbsoluteJointTranslationInObjectFrame(headJointIndex).y != 0;
   }
 
+  function _enlargedMultiplier(user_uuid) {
+    return user_nametags[user_uuid].enlarged ? ENLARGED_MULTIPLIER : 1;
+  }
+
+  function _lineHeight(user_uuid) {
+    return DEFAULT_LINE_HEIGHT * _enlargedMultiplier(user_uuid);
+  }
+
   // Nametag position for use in creating or adjusting nametag entities
-  function _nametagPosition(user) {
-    const user_uuid = user.sessionUUID;
+  function _nametagPosition(user_uuid) {
+    const user = AvatarList.getAvatar(user_uuid);
     const headJointIndex = user.getJointIndex("Head");
     const jointInObjectFrame = user.getAbsoluteJointTranslationInObjectFrame(headJointIndex);
     scale = user.scale;
@@ -259,8 +308,38 @@
   }
 
   function _handleMenuClick(menuItem) {
-    if (MENU_VISIBLE_NAME === menuItem) {
-      _toggleState();
+    switch(menuItem) {
+      case MENU_VISIBLE_NAME:
+        _toggleState();
+        break;
+      case MENU_VISIBLESELF_NAME:
+        _toggleVisibleSelf();
+        break;
+      case MENU_CLICKABLE_NAME:
+        _toggleClickableAvatars();
+        break;
+      case MENU_SCALE_NAME:
+        //TODO
+        break;
+    }
+  }
+
+  function _onMousePress(event) {
+    if (!optionClickable || event.button !== "LEFT") return; // Only left-click
+
+    // Build a PickRay from the camera through the mouse position
+    const pickRay = Camera.computePickRay(event.x, event.y);
+
+    // Grab the list of all avatar session UUIDs currently known to the client
+    const avatarIDs = AvatarList.getAvatarIdentifiers(); // array of strings
+
+    const result = AvatarList.findRayIntersection(pickRay,
+                                                  avatarIDs, // include
+                                                  [MyAvatar.sessionUUID], // exclude
+                                                  false,) // pickAgainstMesh
+
+    if (result.intersects) {
+      _handleAvatarClick(result);
     }
   }
 
@@ -321,24 +400,41 @@
       scale: user.scale,
       displayName: display_name,
       skeletonModelURL: user.skeletonModelURL,
-      size: {}
+      size: {},
+      enlarged: false,
     };
 
+    _createNametagEntity(user_uuid,
+                         display_name);
+
+    // We need to have this on a timeout because "textSize" can not be determined instantly after the entity was created.
+    // https://apidocs.overte.org/Entities.html#.textSize
+    Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
+
+    if (!_hasAvatarLoaded(user) || !user_nametags[user_uuid].size.height) {
+      // Avatar has not finished loading yet;
+      //  we'll reposition when it's ready.
+      print("Avatar is not loaded yet. Will retry...");
+      Script.setTimeout(() => {_adjustNametagPosition(user_uuid)}, 200);
+    }
+  }
+
+  function _createNametagEntity(user_uuid, display_name) {
     user_nametags[user_uuid].text = Entities.addEntity(
       {
         type: "Text",
         text: display_name,
         backgroundAlpha: 0.0,
         billboardMode: "full",
-        dimensions: { x: 0.8, y: 0.2, z: 0.1 },
+        dimensions: DEFAULT_ENTITY_DIMENSIONS,
         unlit: true,
         parentID: user_uuid,
-        position: _nametagPosition(user),
+        position: _nametagPosition(user_uuid),
         visible: true,
         isSolid: false,
-        topMargin: 0.025,
+        topMargin: 0.02 * _enlargedMultiplier(user_uuid),
         alignment: "center",
-        lineHeight: 0.1,
+        lineHeight: _lineHeight(user_uuid),
         canCastShadow: false,
         grab: {
           grabbable: false
@@ -353,7 +449,7 @@
         emissive: true,
         alpha: 0.8,
         keepAspectRatio: false,
-        position: _nametagPosition(user),
+        position: _nametagPosition(user_uuid),
         parentID: user_nametags[user_uuid].text,
         billboardMode: "full",
         imageURL: Script.resolvePath("./assets/badge.svg"),
@@ -364,17 +460,6 @@
       },
       "local"
     );
-
-    // We need to have this on a timeout because "textSize" can not be determined instantly after the entity was created.
-    // https://apidocs.overte.org/Entities.html#.textSize
-    Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
-
-    if (!_hasAvatarLoaded(user) || !user_nametags[user_uuid].size.height) {
-      // Avatar has not finished loading yet;
-      //  we'll reposition when it's ready.
-      print("Avatar is not loaded yet. Will retry...");
-      Script.setTimeout(() => {_adjustNametagPosition(user_uuid)}, 200);
-    }
   }
 
   function _MonitorAvatarLoading(user) {
@@ -429,10 +514,15 @@
     if (newName !== oldName) {
       const display_name = _displayName(user);
       print(`New displayName ${display_name} (${newName}) for ${oldName}`)
-      Entities.editEntity(user_nametags[user_uuid].text, {
-        text: display_name,
-      });
+
       user_nametags[user_uuid].displayName = newName;
+
+      // The displayName has changed so we need to clear the cached
+      // textSize and display lines so they may be recalculated
+      user_nametags[user_uuid].textSize = null;
+      user_nametags[user_uuid].lines = null;
+      user_nametags[user_uuid].size = {};
+
       // Adjust nametag size to accomodate new displayName
       _adjustNametagSize(user_uuid);
       _adjustNametagPosition(user_uuid);
@@ -471,45 +561,93 @@
       Script.setTimeout(() => {
         _adjustNametagPosition(user_uuid);
       }, 100);
+      return;
     }
 
     Entities.editEntity(user_nametags[user_uuid].text, {
-      position: _nametagPosition(user),
+      position: _nametagPosition(user_uuid),
     });
   }
 
   // Resize user's nametag entity
   function _adjustNametagSize(user_uuid) {
     const user = AvatarList.getAvatar(user_uuid);
+    const scale = user.scale;
     const displayName = _displayName(user);
-    const displayNameLines = calculateLines(user_nametags[user_uuid].text, displayName);
-    const displayNameString = displayNameLines.join('\n');
-    let textSize = Entities.textSize(user_nametags[user_uuid].text, displayNameString);
+    let displayNameLines;
+    let displayNameString;
 
-    if (textSize.width === 0 || textSize.height === 0) {
-      // Text size cannot be calculated immediately after entity creation;
-      // We'll keep trying until textSize does not report 0.
-      Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
-      return;
-    } else if (textSize.height <= 0.08
-            || textSize.height >= 0.2*displayNameLines.length
-            || textSize.height === null) {
-      // Text size returns unexpected values during entity
-      // creation. When entity sizes are too large, too small
-      // or invalid we ignore them.
-      // See https://github.com/overte-org/overte/issues/1897.
-      print(`!!! Text size for ${displayName} is an unexpected ${JSON.stringify(textSize)}; Not sizing yet.`);
-      Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
-      return;
+    let textSizeRaw = Entities.textSize(user_nametags[user_uuid].text, displayName);
+    const enlarged = user_nametags[user_uuid].enlarged
+    print("enlarged:", enlarged);
+    const multiplier =  _enlargedMultiplier(user_uuid);
+
+    if (!user_nametags[user_uuid].textSize) {
+
+      // textSize has not yet been cached; we will calculate and cache it
+      if (textSizeRaw.width === 0 || textSizeRaw.height === 0) {
+        // Text size cannot be calculated immediately after entity creation;
+        // We'll keep trying until textSize does not report 0.
+        Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
+        return;
+      } else if (textSizeRaw.height <= 0.08
+        || textSizeRaw.height >= 0.2*multiplier
+        || textSizeRaw.height === null) {
+        // Text size returns unexpected values during entity
+        // creation. When entity sizes are too large, too small
+        // or invalid we ignore them.
+        // See https://github.com/overte-org/overte/issues/1897.
+        print(`!!! Text size for ${displayName} is an unexpected ${JSON.stringify(textSizeRaw)}; Not sizing yet.`);
+        Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
+        return;
+      } else {
+        print(`Text size for ${displayName} is ${JSON.stringify(textSizeRaw)}`);
+
+        if (!user_nametags[user_uuid].lines) {
+          displayNameLines = calculateLines(user_uuid, displayName);
+          user_nametags[user_uuid].lines = displayNameLines;
+          print("New lines calculated");
+        } else {
+          displayNameLines = user_nametags[user_uuid].lines;
+        }
+        print("Lines:", JSON.stringify(displayNameLines));
+
+        displayNameString = displayNameLines.join('\n');
+        textSizeRaw = Entities.textSize(user_nametags[user_uuid].text, displayNameString);
+
+        user_nametags[user_uuid].textSize = { width: textSizeRaw.width, height: textSizeRaw.height };
+      }
     } else {
-      print(`Text size for ${displayName} is ${JSON.stringify(textSize)}`);
+      displayNameLines = user_nametags[user_uuid].lines
     }
 
+    //user_nametags[user_uuid].lines = displayNameLines.length
 
-    let newWidth = textSize.width + 0.25;
-    let newHeight = textSize.height + 0.07;
+    // Load textSize from cache
+    const textSizeCache = user_nametags[user_uuid].textSize;
+    print("textSizeCache:",JSON.stringify(textSizeCache));
+
+    // Scale text size with avatar, if enabled
+    const textSize = optionScale ?
+                { width: textSizeCache.width * scale,
+                  height: textSizeCache.height * scale }
+                : textSizeCache;
+    print("post-cache textSize:",JSON.stringify(textSize));
+
+    // Resize cached textSize to match the scale of the text
+    textResize = { width: textSize.width,
+                   height: textSize.height }
+    print("textResize:",JSON.stringify(textResize));
+    print("textSize fresh:",
+          JSON.stringify(Entities.textSize(user_nametags[user_uuid].text,
+                                           displayNameString)));
+
+    let newWidth = textResize.width + (0.25*multiplier);
+    let newHeight = textResize.height + (0.05*multiplier);
+    print("newWidth:",newWidth,"newHeight:",newHeight);
     user_nametags[user_uuid].size.width = newWidth
     user_nametags[user_uuid].size.height = newHeight
+    const renderLayer = enlarged ? "front" : "world";
 
     Entities.editEntity(user_nametags[user_uuid].text,
                         {
@@ -518,14 +656,17 @@
                             x: newWidth,
                             y: newHeight,
                             z: 0.1,
-                          }
+                          },
+                          lineHeight: _lineHeight(user_uuid),
+                          renderLayer: renderLayer,
+                          topMargin: 0.02 * multiplier,
                         });
     Entities.editEntity(user_nametags[user_uuid].background,
                         {
                           dimensions: {
-                            x: Math.max(newWidth, 0.6),
-                        y: textSize.height + 0.05,
-                        z: 0.1,
+                            x: newWidth,
+                            y: newHeight,
+                            z: 0.1,
                           },
                         });
   }
@@ -537,6 +678,69 @@
       Entities.deleteEntity(user_nametags[user_uuid].text);
       Entities.deleteEntity(user_nametags[user_uuid].background);
       delete user_nametags[user_uuid];
+    }
+  }
+
+  function _toggleClickableAvatars() {
+    optionClickable = !optionClickable
+    Settings.setValue("Nametags_toggleclick", optionClickable);
+  }
+
+  function _handleAvatarClick(intersectionResult) { // RayToEntityIntersectionResult
+    const user_uuid = intersectionResult.avatarID;
+    print("Clicked avatar UUID:", user_uuid);
+
+    if (visible) {
+      // temporarily change size of nametag
+
+      // Set enlarged variable
+      user_nametags[user_uuid].enlarged = true;
+      user_nametags[user_uuid].textSize = null;
+      user_nametags[user_uuid].lines = null;
+      user_nametags[user_uuid].size = {};
+
+      Entities.editEntity(user_nametags[user_uuid].text, {
+        lineHeight: _lineHeight(user_uuid),
+        topMargin: 0.02 * _enlargedMultiplier(user_uuid),
+      });
+
+      // adjustNametagSize
+      Script.setTimeout(() => {
+        _adjustNametagSize(user_uuid);
+        _adjustNametagPosition(user_uuid);
+      }, 100);
+
+      // SetTimeout to
+      Script.setTimeout(() => {
+        //  unset enlarged variable
+        user_nametags[user_uuid].enlarged = false
+        user_nametags[user_uuid].textSize = null;
+        user_nametags[user_uuid].lines = null;
+        user_nametags[user_uuid].size = {};
+
+        Entities.editEntity(user_nametags[user_uuid].text, {
+          lineHeight: _lineHeight(user_uuid),
+          topMargin: 0.02 * _enlargedMultiplier(user_uuid),
+        });
+
+        //  adjustNametagSize
+        print("size.height1:",JSON.stringify(user_nametags[user_uuid].size.height))
+        _adjustNametagSize(user_uuid);
+        print("size.height2:",JSON.stringify(user_nametags[user_uuid].size.height))
+        _adjustNametagPosition(user_uuid);
+      }, 6000);
+
+    } else {
+      // Temporarily make nametag visible
+
+      // addUser
+      _addUser(user_uuid)
+
+      // SetTimeout to removeUser, if !visible
+      Script.setTimeout(() => {
+        if (!visible) _removeUser(user_uuid);
+      }, 3000);
+
     }
   }
 
@@ -586,7 +790,11 @@
 
   function _scriptEnding() {
     tablet.removeButton(tabletButton);
-    Menu.removeMenuItem(MENU_VISIBLE_MENU, MENU_VISIBLE_NAME);
+    Menu.removeMenuItem(MENU_VIEW_SUBMENU, MENU_VISIBLE_NAME);
+    Menu.removeMenuItem(MENU_VIEW_SUBMENU, MENU_VISIBLESELF_NAME);
+    Menu.removeMenuItem(MENU_VIEW_SUBMENU, MENU_CLICKABLE_NAME);
+    Menu.removeMenuItem(MENU_VIEW_SUBMENU, MENU_SCALE_NAME);
+    Menu.removeMenu(MENU_VIEW_SUBMENU);
 
     for (let i = 0; Object.keys(user_nametags).length > i; i++) {
       Entities.deleteEntity(user_nametags[Object.keys(user_nametags)[i]].text);
