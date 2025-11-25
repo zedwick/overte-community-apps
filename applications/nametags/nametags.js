@@ -36,9 +36,9 @@
   DEFAULT_LINE_HEIGHT = 0.1;
   ENLARGED_MULTIPLIER = 4;
 
-  _updateList();
+  if (visible) _updateList();
 
-  AvatarManager.avatarAddedEvent.connect(_addUser); // New user connected
+  AvatarManager.avatarAddedEvent.connect(_handleConnectingUser); // New user connected
   AvatarManager.avatarRemovedEvent.connect(_removeUser); // User disconnected
   AvatarManager.avatarSessionChangedEvent.connect(_avatarSessionChanged);
   Script.update.connect(_adjustNametags); // Delta time
@@ -292,7 +292,7 @@
         if (user_nametags[oldSessionUUID]) _removeUser(oldSessionUUID);
     }
 
-    if (newSessionUUID !== null) {
+    if (visible && newSessionUUID !== null) {
       // This is MyAvatar only if MyAvatar.sessionUUID matches either oldSessionUUID, newSessionUUID or "{00000000-0000-0000-0000-000000000001}"
       const isSelf = [oldSessionUUID, "{00000000-0000-0000-0000-000000000001}", newSessionUUID].includes(MyAvatar.sessionUUID);
 
@@ -341,6 +341,10 @@
     if (result.intersects) {
       _handleAvatarClick(result);
     }
+  }
+
+  function _handleConnectingUser(user_uuid) {
+    if (visible) _addUser(user_uuid);
   }
 
   // Message handling
@@ -392,8 +396,7 @@
 
   // Add a user to the user list
   function _addUser(user_uuid) {
-    if (!visible
-        || (!visibleSelf
+    if ((!visibleSelf
             && user_uuid === MyAvatar.sessionUUID)
         || user_nametags[user_uuid]) return;
 
@@ -720,6 +723,7 @@
 
       // SetTimeout to
       Script.setTimeout(() => {
+        if (!user_nametags[user_uuid]) return;
         //  unset enlarged variable
         user_nametags[user_uuid].enlarged = false
         user_nametags[user_uuid].textSize = null;
@@ -747,7 +751,7 @@
       // SetTimeout to removeUser, if !visible
       Script.setTimeout(() => {
         if (!visible) _removeUser(user_uuid);
-      }, 3000);
+      }, 6000);
 
     }
   }
