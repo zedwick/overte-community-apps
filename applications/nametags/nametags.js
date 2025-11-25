@@ -508,7 +508,7 @@
       // User has finished rescaling,
       //  but there may be a delay before the avatar finishes resizing.
       Script.setTimeout(() => {
-        _adjustNametagPosition(user_uuid);
+        if (!user_nametags[user_uuid].rescaling) _adjustNametagPosition(user_uuid);
       }, 3000);
 
       user_nametags[user_uuid].rescaling = false;
