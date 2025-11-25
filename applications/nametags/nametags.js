@@ -449,7 +449,8 @@
         canCastShadow: false,
         grab: {
           grabbable: false
-        }
+        },
+        visible: false,
       },
       "local"
     );
@@ -467,7 +468,8 @@
         canCastShadow: false,
         grab: {
           grabbable: false
-        }
+        },
+        visible: false,
       },
       "local"
     );
@@ -577,6 +579,11 @@
 
     Entities.editEntity(user_nametags[user_uuid].text, {
       position: _nametagPosition(user_uuid),
+      visible: true,
+    });
+
+    Entities.editEntity(user_nametags[user_uuid].background, {
+      visible: true,
     });
   }
 
