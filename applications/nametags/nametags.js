@@ -59,7 +59,7 @@
     text: "NAMETAGS",
     isActive: visible,
   });
-  tabletButton.clicked.connect(_toggleState);
+  tabletButton.clicked.connect(_triggerMenuVisible);
 
   // View menu
   //
@@ -364,7 +364,7 @@
           console.log('Func:', func);
           switch (func) {
             case "nametags.toggle":
-              _toggleState();
+              _triggerMenuVisible();
               break;
             case "nametags.toggleSelf":
               _toggleVisibleSelf();
@@ -377,6 +377,14 @@
       }
     }
   };
+
+  // There is no way to change the visible toggle state of a menu item
+  // without also triggering the menu action. So to keep it in sync, we
+  // must instead always trigger the menu item whenever we want to
+  // change the visible state.
+  function _triggerMenuVisible() {
+    Menu.triggerOption(MENU_VISIBLE_NAME);
+  }
 
 
   // Business functions
