@@ -736,9 +736,7 @@
         });
 
         //  adjustNametagSize
-        print("size.height1:",JSON.stringify(user_nametags[user_uuid].size.height))
         _adjustNametagSize(user_uuid);
-        print("size.height2:",JSON.stringify(user_nametags[user_uuid].size.height))
         _adjustNametagPosition(user_uuid);
       }, 6000);
 
