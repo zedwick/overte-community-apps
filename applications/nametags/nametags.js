@@ -719,17 +719,14 @@
 
   function _handleAvatarClick(intersectionResult) { // RayToEntityIntersectionResult
     const user_uuid = intersectionResult.avatarID;
-    const distance = intersectionResult.distance;
 
     // There seems to be a bug with findRayIntersection which affects only
     // certain avatars. See https://github.com/overte-org/overte/issues/1923
-    // Our temporary workaround to this problem is just to detect
-    // unexpected distances and use a standard enlargement size
-    // rather than one properly scaled to the distance.
-    const distanceLimited = distance > 100 ? 8 : distance;
+    // The workaround to this is to just compute the distance based on their position, rather than the intersection
+    const avatar = AvatarList.getAvatar(user_uuid);
+    const distance = Vec3.distance(avatar.position, Camera.position);
 
-
-    print("Clicked avatar UUID:", user_uuid, " at distance of ", distance, "limited to", distanceLimited);
+    print("Clicked avatar UUID:", user_uuid, " at distance of ", distance);
 
     if (visible) {
       // temporarily change size of nametag
@@ -739,7 +736,7 @@
       user_nametags[user_uuid].textSize = null;
       user_nametags[user_uuid].lines = null;
       user_nametags[user_uuid].size = {};
-      user_nametags[user_uuid].nametagScale = distanceLimited/2;
+      user_nametags[user_uuid].nametagScale = distance/2;
 
       Entities.editEntity(user_nametags[user_uuid].text, {
         lineHeight: _lineHeight(user_uuid),
