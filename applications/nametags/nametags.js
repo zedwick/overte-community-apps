@@ -12,6 +12,7 @@
   "use strict";
   let user_nametags = {};
   let last_camera_mode = Camera.mode;
+  let simplifiedNametagsUrl;
 
   // Settings
   let visible = Settings.getValue("Nametags_toggle", true);
@@ -36,7 +37,23 @@
   DEFAULT_LINE_HEIGHT = 0.1;
   ENLARGED_MULTIPLIER = 4;
 
-  if (visible) _updateList();
+  setup();
+
+  function setup() {
+    // Disable built in nametags
+    const runningScripts = ScriptDiscoveryService.getRunning();
+    for (const script of runningScripts) {
+      if (script.name === "simplifiedNametag.js") {
+        print ("Disabling", script.name);
+        ScriptDiscoveryService.stopScript(script.url);
+        simplifiedNametagsUrl = script.url;
+      }
+    }
+
+    if (visible) _updateList();
+  }
+
+
 
   AvatarManager.avatarAddedEvent.connect(_handleConnectingUser); // New user connected
   AvatarManager.avatarRemovedEvent.connect(_removeUser); // User disconnected
@@ -831,6 +848,11 @@
   //
 
   function _scriptEnding() {
+    if (simplifiedNametagsUrl) {
+      print ("Enabling SimplifiedNametag from ", simplifiedNametagsUrl);
+      ScriptDiscoveryService.loadScript(simplifiedNametagsUrl);
+    }
+
     tablet.removeButton(tabletButton);
     Menu.removeMenuItem(MENU_VIEW_SUBMENU, MENU_VISIBLE_NAME);
     Menu.removeMenuItem(MENU_VIEW_SUBMENU, MENU_VISIBLESELF_NAME);
