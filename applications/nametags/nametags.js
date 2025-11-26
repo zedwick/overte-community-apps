@@ -246,7 +246,7 @@
   }
 
   function _enlargedMultiplier(user_uuid) {
-    return user_nametags[user_uuid].enlarged ? ENLARGED_MULTIPLIER : 1;
+    return user_nametags[user_uuid].nametagScale ? user_nametags[user_uuid].nametagScale : 1;
   }
 
   function _lineHeight(user_uuid) {
@@ -333,7 +333,7 @@
     const pickRay = Camera.computePickRay(event.x, event.y);
 
     // Grab the list of all avatar session UUIDs currently known to the client
-    const avatarIDs = AvatarList.getAvatarIdentifiers(); // array of strings
+    const avatarIDs = AvatarList.getAvatarIdentifiers();
 
     const result = AvatarList.findRayIntersection(pickRay,
                                                   avatarIDs, // include
@@ -417,6 +417,7 @@
       enlarged: false,
       visible: false,
       showFullName: false,
+      nametagScale: 1,
     };
 
     _createNametagEntity(user_uuid,
@@ -718,7 +719,17 @@
 
   function _handleAvatarClick(intersectionResult) { // RayToEntityIntersectionResult
     const user_uuid = intersectionResult.avatarID;
-    print("Clicked avatar UUID:", user_uuid);
+    const distance = intersectionResult.distance;
+
+    // There seems to be a bug with findRayIntersection which affects only
+    // certain avatars. See https://github.com/overte-org/overte/issues/1923
+    // Our temporary workaround to this problem is just to detect
+    // unexpected distances and use a standard enlargement size
+    // rather than one properly scaled to the distance.
+    const distanceLimited = distance > 100 ? 8 : distance;
+
+
+    print("Clicked avatar UUID:", user_uuid, " at distance of ", distance, "limited to", distanceLimited);
 
     if (visible) {
       // temporarily change size of nametag
@@ -728,6 +739,7 @@
       user_nametags[user_uuid].textSize = null;
       user_nametags[user_uuid].lines = null;
       user_nametags[user_uuid].size = {};
+      user_nametags[user_uuid].nametagScale = distanceLimited/2;
 
       Entities.editEntity(user_nametags[user_uuid].text, {
         lineHeight: _lineHeight(user_uuid),
@@ -743,6 +755,7 @@
         user_nametags[user_uuid].lines = null;
         user_nametags[user_uuid].size = {};
         user_nametags[user_uuid].showFullName = false;
+        user_nametags[user_uuid].nametagScale = 1;
 
         Entities.editEntity(user_nametags[user_uuid].text, {
           lineHeight: _lineHeight(user_uuid),
