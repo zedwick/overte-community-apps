@@ -758,6 +758,7 @@
       Entities.editEntity(user_nametags[user_uuid].text, {
         lineHeight: _lineHeight(user_uuid),
         topMargin: 0.02 * _enlargedMultiplier(user_uuid),
+        visible: false,
       });
 
       // SetTimeout to
@@ -774,11 +775,15 @@
         Entities.editEntity(user_nametags[user_uuid].text, {
           lineHeight: _lineHeight(user_uuid),
           topMargin: 0.02 * _enlargedMultiplier(user_uuid),
+          visible: false,
         });
 
-        //  adjustNametagSize
-        _adjustNametagSize(user_uuid);
-        _adjustNametagPosition(user_uuid);
+        // Adjust nameta after a short delay to allow time for
+        // entity data to update
+        Script.setTimeout(() => {
+          _adjustNametagSize(user_uuid);
+          _adjustNametagPosition(user_uuid);
+        }, 100);
       }, 6000);
 
     } else {
