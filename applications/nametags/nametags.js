@@ -157,6 +157,8 @@
     let currentLine = '';
     let lineCount = 0;
 
+    const moreThanMaxLines = () => !user_nametags[user_uuid].showFullName && lineCount >= MAX_LINES;
+
     // Iterate over each word to check the line length with each word appended
     // If it becomes too long, creates a new line with that that word and
     // continues; for very long words will instead iterate over each character
@@ -173,7 +175,7 @@
       if (lineSize.width <= maxLineWidth) {
         currentLine = testLine;
       } else {
-        if (lineCount >= MAX_LINES) break;
+        if (moreThanMaxLines()) break;
 
         // But what if a single word is too long?
         let wordSize = Entities.textSize(textEntityId, word);
@@ -191,13 +193,13 @@
               if (charCount >= MIN_WORD_LENGTH) {
                 lines.push(testLine);
                 lineCount++;
-                if (lineCount >= MAX_LINES) break;
+                if (moreThanMaxLines()) break;
                 sub = '';
                 currentLine = sub;
               } else {
                 lines.push(currentLine);
                 lineCount++;
-                if (lineCount >= MAX_LINES) break;
+                if (moreThanMaxLines()) break;
                 sub = sub+char;
                 currentLine = '';
               }
@@ -208,18 +210,18 @@
           lines.push(currentLine);
           lineCount++;
 
-          if (lineCount >= MAX_LINES) break;
+          if (moreThanMaxLines()) break;
 
           currentLine = word;
         }
       }
     }
 
-    if (currentLine && (lineCount < MAX_LINES)) {
+    if (currentLine && (user_nametags[user_uuid].showFullName || lineCount < MAX_LINES)) {
       lines.push(currentLine);
     }
 
-    if (lineCount === MAX_LINES) {
+    if (!user_nametags[user_uuid].showFullName && lineCount === MAX_LINES) {
       lines[MAX_LINES-1] = lines[MAX_LINES-1]+"...";
     }
 
@@ -414,6 +416,7 @@
       size: {},
       enlarged: false,
       visible: false,
+      showFullName: false,
     };
 
     _createNametagEntity(user_uuid,
@@ -731,12 +734,6 @@
         topMargin: 0.02 * _enlargedMultiplier(user_uuid),
       });
 
-      // adjustNametagSize
-      Script.setTimeout(() => {
-        _adjustNametagSize(user_uuid);
-        _adjustNametagPosition(user_uuid);
-      }, 100);
-
       // SetTimeout to
       Script.setTimeout(() => {
         if (!user_nametags[user_uuid]) return;
@@ -745,6 +742,7 @@
         user_nametags[user_uuid].textSize = null;
         user_nametags[user_uuid].lines = null;
         user_nametags[user_uuid].size = {};
+        user_nametags[user_uuid].showFullName = false;
 
         Entities.editEntity(user_nametags[user_uuid].text, {
           lineHeight: _lineHeight(user_uuid),
@@ -768,6 +766,14 @@
       }, 6000);
 
     }
+    user_nametags[user_uuid].showFullName = true;
+
+    // Adjust nameta after a short delay to allow time for
+    // entity data to update
+    Script.setTimeout(() => {
+      _adjustNametagSize(user_uuid);
+      _adjustNametagPosition(user_uuid);
+    }, 100);
   }
 
   // Enable or disable nametags
