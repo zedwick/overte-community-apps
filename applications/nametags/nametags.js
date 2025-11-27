@@ -274,7 +274,8 @@
     const finalNametagScale = nametagScale ? nametagScale : 1;
 
     // Scale with avatars
-    const finalScale = optionScale ? scale : 1;
+    //  but not if nametags are supposed to be larger
+    const finalScale = optionScale && finalNametagScale === 1 ? scale : 1;
 
     const finalMultiplier = finalNametagScale*finalScale;
     return finalMultiplier;
