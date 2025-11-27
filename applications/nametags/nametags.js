@@ -41,14 +41,17 @@
 
   function setup() {
     // Disable built in nametags
-    const runningScripts = ScriptDiscoveryService.getRunning();
-    for (const script of runningScripts) {
-      if (script.name === "simplifiedNametag.js") {
-        print ("Disabling", script.name);
-        ScriptDiscoveryService.stopScript(script.url);
-        simplifiedNametagsUrl = script.url;
+    //  after a delay to ensure other scripts have been loaded
+    Script.setTimeout(() => {
+      const runningScripts = ScriptDiscoveryService.getRunning();
+      for (const script of runningScripts) {
+        if (script.name === "simplifiedNametag.js") {
+          print ("Disabling", script.name);
+          ScriptDiscoveryService.stopScript(script.url);
+          simplifiedNametagsUrl = script.url;
+        }
       }
-    }
+    }, 3000);
 
     if (visible) _updateList();
   }
