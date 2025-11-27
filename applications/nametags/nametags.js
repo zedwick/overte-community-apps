@@ -18,7 +18,7 @@
   let visible = Settings.getValue("Nametags_toggle", true);
   let visibleSelf = Settings.getValue("Nametags_toggleself", false);
   let optionClickable = Settings.getValue("Nametags_toggleclick", true);
-  let optionScale = false; //Settings.getValue("Nametags_togglescale", true);
+  let optionScale = Settings.getValue("Nametags_togglescale", true);
 
   const COLOUR_ENABLED = "lightgreen";
   const COLOUR_DISABLED = "red";
@@ -263,7 +263,18 @@
   }
 
   function _enlargedMultiplier(user_uuid) {
-    return user_nametags[user_uuid].nametagScale ? user_nametags[user_uuid].nametagScale : 1;
+    const user = AvatarList.getAvatar(user_uuid);
+    const scale = user.scale;
+    const nametagScale = user_nametags[user_uuid].nametagScale;
+
+    // Scale nametag as set (by distance, probably)
+    const finalNametagScale = nametagScale ? nametagScale : 1;
+
+    // Scale with avatars
+    const finalScale = optionScale ? scale : 1;
+
+    const finalMultiplier = finalNametagScale*finalScale;
+    return finalMultiplier;
   }
 
   function _lineHeight(user_uuid) {
@@ -338,7 +349,7 @@
         _toggleClickableAvatars();
         break;
       case MENU_SCALE_NAME:
-        //TODO
+        _toggleScaleWithAvatars();
         break;
     }
   }
@@ -431,7 +442,6 @@
       displayName: display_name,
       skeletonModelURL: user.skeletonModelURL,
       size: {},
-      enlarged: false,
       visible: false,
       showFullName: false,
       nametagScale: 1,
@@ -537,7 +547,21 @@
       // User has finished rescaling,
       //  but there may be a delay before the avatar finishes resizing.
       Script.setTimeout(() => {
-        if (!user_nametags[user_uuid].rescaling) _adjustNametagPosition(user_uuid);
+        if (!user_nametags[user_uuid].rescaling) {
+          Entities.editEntity(user_nametags[user_uuid].text, {
+            lineHeight: _lineHeight(user_uuid),
+            topMargin: 0.02 * _enlargedMultiplier(user_uuid),
+          });
+          user_nametags[user_uuid].textSize = null;
+          user_nametags[user_uuid].lines = null;
+          user_nametags[user_uuid].size = {};
+
+          // Delay adjusting, to give the text entity time to catch up
+          Script.setTimeout(() => {
+            _adjustNametagSize(user_uuid);
+            _adjustNametagPosition(user_uuid);
+          }, 100);
+        }
       }, 3000);
 
       user_nametags[user_uuid].rescaling = false;
@@ -626,9 +650,8 @@
     let displayNameString;
 
     let textSizeRaw = Entities.textSize(user_nametags[user_uuid].text, displayName);
-    const enlarged = user_nametags[user_uuid].enlarged
-    print("enlarged:", enlarged);
     const multiplier =  _enlargedMultiplier(user_uuid);
+    const enlarged = multiplier > 1;
 
     if (!user_nametags[user_uuid].textSize) {
 
@@ -638,7 +661,7 @@
         // We'll keep trying until textSize does not report 0.
         Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
         return;
-      } else if (textSizeRaw.height <= 0.08
+      } else if (textSizeRaw.height <= 0.08*multiplier
         || textSizeRaw.height >= 0.2*multiplier
         || textSizeRaw.height === null) {
         // Text size returns unexpected values during entity
@@ -675,23 +698,12 @@
     const textSizeCache = user_nametags[user_uuid].textSize;
     print("textSizeCache:",JSON.stringify(textSizeCache));
 
-    // Scale text size with avatar, if enabled
-    const textSize = optionScale ?
-                { width: textSizeCache.width * scale,
-                  height: textSizeCache.height * scale }
-                : textSizeCache;
-    print("post-cache textSize:",JSON.stringify(textSize));
-
-    // Resize cached textSize to match the scale of the text
-    textResize = { width: textSize.width,
-                   height: textSize.height }
-    print("textResize:",JSON.stringify(textResize));
     print("textSize fresh:",
           JSON.stringify(Entities.textSize(user_nametags[user_uuid].text,
                                            displayNameString)));
 
-    let newWidth = textResize.width + (0.25*multiplier);
-    let newHeight = textResize.height + (0.05*multiplier);
+    let newWidth = textSizeCache.width + (0.25*multiplier);
+    let newHeight = textSizeCache.height + (0.05*multiplier);
     print("newWidth:",newWidth,"newHeight:",newHeight);
     user_nametags[user_uuid].size.width = newWidth
     user_nametags[user_uuid].size.height = newHeight
@@ -734,22 +746,25 @@
     Settings.setValue("Nametags_toggleclick", optionClickable);
   }
 
+  function _toggleScaleWithAvatars() {
+    optionScale = !optionScale;
+    Settings.setValue("Nametags_togglescale", optionScale);
+  }
+
   function _handleAvatarClick(intersectionResult) { // RayToEntityIntersectionResult
     const user_uuid = intersectionResult.avatarID;
 
     // There seems to be a bug with findRayIntersection which affects only
     // certain avatars. See https://github.com/overte-org/overte/issues/1923
-    // The workaround to this is to just compute the distance based on their position, rather than the intersection
+    // The workaround to this is to just compute the distance based on
+    // their position, rather than the intersection
     const avatar = AvatarList.getAvatar(user_uuid);
     const distance = Vec3.distance(avatar.position, Camera.position);
-
-    print("Clicked avatar UUID:", user_uuid, " at distance of ", distance);
 
     if (visible) {
       // temporarily change size of nametag
 
-      // Set enlarged variable
-      user_nametags[user_uuid].enlarged = true;
+      // (re)set data for enlargement
       user_nametags[user_uuid].textSize = null;
       user_nametags[user_uuid].lines = null;
       user_nametags[user_uuid].size = {};
@@ -761,11 +776,10 @@
         visible: false,
       });
 
-      // SetTimeout to
+      // Restore original size after a delay
       Script.setTimeout(() => {
         if (!user_nametags[user_uuid]) return;
         //  unset enlarged variable
-        user_nametags[user_uuid].enlarged = false
         user_nametags[user_uuid].textSize = null;
         user_nametags[user_uuid].lines = null;
         user_nametags[user_uuid].size = {};
@@ -853,6 +867,7 @@
   //
 
   function _scriptEnding() {
+    // Restore built-in nametags
     if (simplifiedNametagsUrl) {
       print ("Enabling SimplifiedNametag from ", simplifiedNametagsUrl);
       ScriptDiscoveryService.loadScript(simplifiedNametagsUrl);
