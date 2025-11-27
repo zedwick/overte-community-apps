@@ -174,7 +174,7 @@
     let currentLine = '';
     let lineCount = 0;
 
-    const moreThanMaxLines = () => !user_nametags[user_uuid].showFullName && lineCount >= MAX_LINES;
+    const moreThanMaxLines = () => !user_nametags[user_uuid].showFullName && lineCount != null && lineCount >= MAX_LINES;
 
     // Iterate over each word to check the line length with each word appended
     // If it becomes too long, creates a new line with that that word and
@@ -663,7 +663,7 @@
         return;
       } else if (textSizeRaw.height <= 0.08*multiplier
         || textSizeRaw.height >= 0.2*multiplier
-        || textSizeRaw.height === null) {
+        || textSizeRaw.height == null) {
         // Text size returns unexpected values during entity
         // creation. When entity sizes are too large, too small
         // or invalid we ignore them.
@@ -677,7 +677,6 @@
         if (!user_nametags[user_uuid].lines) {
           displayNameLines = calculateLines(user_uuid, displayName);
           user_nametags[user_uuid].lines = displayNameLines;
-          print("New lines calculated");
         } else {
           displayNameLines = user_nametags[user_uuid].lines;
         }
