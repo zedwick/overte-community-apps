@@ -10,9 +10,13 @@
 
   const ContextMenu = Script.require("contextMenu");
 
+  const SIMPLIFIEDNAMETAGS_DISABLE_FIELD = "simplifiedNametag/avatarNametagMode";
+  const SIMPLIFIEDNAMETAGS_DISABLE_VALUE = "off";
+
   let user_nametags = {};
   let last_camera_mode = Camera.mode;
   let simplifiedNametagsUrl;
+  const simplifiedNametagsMode = Settings.getValue(SIMPLIFIEDNAMETAGS_DISABLE_FIELD, null);
 
   // Settings
   let visible = Settings.getValue("Nametags_toggle", true);
@@ -41,17 +45,22 @@
 
   function setup() {
     // Disable built in nametags
-    //  after a delay to ensure other scripts have been loaded
-    Script.setTimeout(() => {
-      const runningScripts = ScriptDiscoveryService.getRunning();
-      for (const script of runningScripts) {
-        if (script.name === "simplifiedNametag.js") {
-          print ("Disabling", script.name);
-          ScriptDiscoveryService.stopScript(script.url);
-          simplifiedNametagsUrl = script.url;
-        }
+    //  after a delay to (hopefully) ensure other scripts have been loaded
+    const runningScripts = ScriptDiscoveryService.getRunning();
+    for (const script of runningScripts) {
+      if (script.name === "simplifiedNametag.js") {
+        print ("Disabling", script.name);
+        ScriptDiscoveryService.stopScript(script.url);
+        simplifiedNametagsUrl = script.url;
       }
-    }, 3000);
+    }
+
+    // if simplifiedNametag has not loaded yet we can set it to off before it loads
+    if (!simplifiedNametagsUrl) {
+      print ("Turning off simplifiedNametags");
+      Settings.setValue(SIMPLIFIEDNAMETAGS_DISABLE_FIELD,
+                        SIMPLIFIEDNAMETAGS_DISABLE_VALUE)
+    }
 
     if (visible) _updateList();
   }
@@ -873,6 +882,7 @@
 
   function _scriptEnding() {
     // Restore built-in nametags
+    Settings.setValue(SIMPLIFIEDNAMETAGS_DISABLE_FIELD, simplifiedNametagsMode);
     if (simplifiedNametagsUrl) {
       print ("Enabling SimplifiedNametag from ", simplifiedNametagsUrl);
       ScriptDiscoveryService.loadScript(simplifiedNametagsUrl);
