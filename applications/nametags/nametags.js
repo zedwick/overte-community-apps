@@ -664,7 +664,7 @@
 
     let textSizeRaw = Entities.textSize(user_nametags[user_uuid].text, displayName);
     const multiplier =  _enlargedMultiplier(user_uuid);
-    const enlarged = multiplier > 1;
+    const enlarged = user_nametags[user_uuid].nametagScale != 1;
 
     if (!user_nametags[user_uuid].textSize) {
 
@@ -742,6 +742,7 @@
                             y: newHeight,
                             z: 0.1,
                           },
+                          renderLayer: renderLayer,
                         });
   }
 
