@@ -667,7 +667,8 @@
         return;
       } else if (textSizeRaw.height <= 0.08*multiplier
         || textSizeRaw.height >= 0.2*multiplier
-        || textSizeRaw.height == null) {
+        || textSizeRaw.height == null
+        || Number.isNaN(textSizeRaw.height)) {
         // Text size returns unexpected values during entity
         // creation. When entity sizes are too large, too small
         // or invalid we ignore them.
