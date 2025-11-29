@@ -6,10 +6,10 @@
 // See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
 
 (function () {
+  "use strict";
 
   const ContextMenu = Script.require("contextMenu");
 
-  "use strict";
   let user_nametags = {};
   let last_camera_mode = Camera.mode;
   let simplifiedNametagsUrl;
@@ -33,9 +33,9 @@
   const MENU_CLICKABLE_NAME = "Click avatar to show/expand";
   const MENU_SCALE_NAME = "Scale with avatar";
 
-  DEFAULT_ENTITY_DIMENSIONS = { x: 0.8, y: 0.2, z: 0.1 };
-  DEFAULT_LINE_HEIGHT = 0.1;
-  ENLARGED_MULTIPLIER = 4;
+  const DEFAULT_ENTITY_DIMENSIONS = { x: 0.8, y: 0.2, z: 0.1 };
+  const DEFAULT_LINE_HEIGHT = 0.1;
+  const ENLARGED_MULTIPLIER = 4;
 
   setup();
 
@@ -190,7 +190,7 @@
                         : word;
       let lineSize = Entities.textSize(textEntityId, testLine);
 
-      maxLineWidth = MAX_LINE_WIDTH * _enlargedMultiplier(user_uuid);
+      const maxLineWidth = MAX_LINE_WIDTH * _enlargedMultiplier(user_uuid);
 
       if (lineSize.width <= maxLineWidth) {
         currentLine = testLine;
@@ -290,7 +290,7 @@
     const user = AvatarList.getAvatar(user_uuid);
     const headJointIndex = user.getJointIndex("Head");
     const jointInObjectFrame = user.getAbsoluteJointTranslationInObjectFrame(headJointIndex);
-    scale = user.scale;
+    const scale = user.scale;
     const nameTagHeight = user_nametags[user_uuid].size.height
     const newY = jointInObjectFrame.y + 0.4*Math.max(0.4, Math.min(scale, 4)) + (nameTagHeight/2)
     print(`User ${user.displayName}${user_uuid} Head: ${headJointIndex}, y: ${jointInObjectFrame.y} scale: ${scale}, newY: ${newY}`);
