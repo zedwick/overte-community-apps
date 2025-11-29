@@ -429,7 +429,7 @@
   //
 
   // Add a user to the user list
-  function _addUser(user_uuid) {
+  function _addUser(user_uuid, user_num, all_uuids, nametagScale) {
     if ((!visibleSelf
             && user_uuid === MyAvatar.sessionUUID)
         || user_nametags[user_uuid]) return;
@@ -437,7 +437,7 @@
     const user = AvatarList.getAvatar(user_uuid);
     const display_name = _displayName(user);
 
-    console.log(`Registering ${display_name} (${user_uuid}) nametag`);
+    console.log(`Registering ${user_num??'-'} ${display_name} (${user_uuid}) nametag @nametagScale ${nametagScale ?? 1}`);
 
     user_nametags[user_uuid] = {
       text: {},
@@ -448,7 +448,7 @@
       size: {},
       visible: false,
       showFullName: false,
-      nametagScale: 1,
+      nametagScale: nametagScale ?? 1,
     };
 
     _createNametagEntity(user_uuid,
@@ -676,6 +676,7 @@
         Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
         return;
       } else {
+        print(`${displayName} height type: ${typeof textSizeRaw.height} value: ${textSizeRaw.height}`);
         print(`Text size for ${displayName} is ${JSON.stringify(textSizeRaw)}`);
 
         if (!user_nametags[user_uuid].lines) {
@@ -807,7 +808,7 @@
       // Temporarily make nametag visible
 
       // addUser
-      _addUser(user_uuid)
+      _addUser(user_uuid, undefined, undefined, distance/2);
 
       // SetTimeout to removeUser, if !visible
       Script.setTimeout(() => {
