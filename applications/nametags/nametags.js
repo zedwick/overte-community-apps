@@ -70,7 +70,7 @@
   AvatarManager.avatarAddedEvent.connect(_handleConnectingUser); // New user connected
   AvatarManager.avatarRemovedEvent.connect(_removeUser); // User disconnected
   AvatarManager.avatarSessionChangedEvent.connect(_avatarSessionChanged);
-  Script.update.connect(_adjustNametags); // Delta time
+  Script.update.connect(_updateNametags); // Delta time
   Controller.mousePressEvent.connect(_onMousePress);
 
   Script.scriptEnding.connect(_scriptEnding); // Script was uninstalled
@@ -538,7 +538,7 @@
     }
   }
 
-  function _adjustNametag(user_uuid) {
+  function _updateNametag(user_uuid) {
     const user = AvatarList.getAvatar(user_uuid);
 
     if (user.scale !== user_nametags[user_uuid].scale) {
@@ -561,19 +561,7 @@
       //  but there may be a delay before the avatar finishes resizing.
       Script.setTimeout(() => {
         if (!user_nametags[user_uuid].rescaling) {
-          Entities.editEntity(user_nametags[user_uuid].text, {
-            lineHeight: _lineHeight(user_uuid),
-            topMargin: 0.02 * _enlargedMultiplier(user_uuid),
-          });
-          user_nametags[user_uuid].textSize = null;
-          user_nametags[user_uuid].lines = null;
-          user_nametags[user_uuid].size = {};
-
-          // Delay adjusting, to give the text entity time to catch up
-          Script.setTimeout(() => {
-            _adjustNametagSize(user_uuid);
-            _adjustNametagPosition(user_uuid);
-          }, 100);
+          _adjustNametag(user_uuid);
         }
       }, 3000);
 
@@ -596,20 +584,12 @@
 
       user_nametags[user_uuid].displayName = newName;
 
-      // The displayName has changed so we need to clear the cached
-      // textSize and display lines so they may be recalculated
-      user_nametags[user_uuid].textSize = null;
-      user_nametags[user_uuid].lines = null;
-      user_nametags[user_uuid].size = {};
-
-      // Adjust nametag size to accomodate new displayName
-      _adjustNametagSize(user_uuid);
-      _adjustNametagPosition(user_uuid);
+      _adjustNametag(user_uuid);
     }
   }
 
   // Updates positions of existing nametags
-  function _adjustNametags() {
+  function _updateNametags() {
     if (!visible) return;
 
     if (visibleSelf) {
@@ -621,8 +601,30 @@
     }
 
     Object.keys(user_nametags).forEach((user_uuid) => {
-      _adjustNametag(user_uuid);
+      _updateNametag(user_uuid);
     });
+  }
+
+  function _adjustNametag(user_uuid, visible) {
+    // Update lineHeight and margins early to allow the entity to update
+    // before requesting textSize
+    Entities.editEntity(user_nametags[user_uuid].text, {
+                        lineHeight: _lineHeight(user_uuid),
+                        topMargin: 0.02 * _enlargedMultiplier(user_uuid),
+                        visible: visible ?? true,
+    });
+
+    // Delay adjusting, to give the text entity time to catch up
+    Script.setTimeout(() => {
+      // Clear the cached textSize and display lines
+      // so they may be recalculated
+      user_nametags[user_uuid].textSize = null;
+      user_nametags[user_uuid].lines = null;
+      user_nametags[user_uuid].size = {};
+
+      _adjustNametagSize(user_uuid);
+      _adjustNametagPosition(user_uuid);
+    }, 100);
   }
 
   function _adjustNametagPosition(user_uuid) {
@@ -764,6 +766,11 @@
   function _toggleScaleWithAvatars() {
     optionScale = !optionScale;
     Settings.setValue("Nametags_togglescale", optionScale);
+
+    if (visible) {
+      print("Adjusting nametags due to toggled scale with avatars option");
+      Object.keys(user_nametags).forEach(_adjustNametag);
+    }
   }
 
   function _handleAvatarClick(intersectionResult) { // RayToEntityIntersectionResult
@@ -779,40 +786,17 @@
     if (visible) {
       // temporarily change size of nametag
 
-      // (re)set data for enlargement
-      user_nametags[user_uuid].textSize = null;
-      user_nametags[user_uuid].lines = null;
-      user_nametags[user_uuid].size = {};
+      // set nametagScale before adjusting nametag
       user_nametags[user_uuid].nametagScale = distance/2;
-
-      Entities.editEntity(user_nametags[user_uuid].text, {
-        lineHeight: _lineHeight(user_uuid),
-        topMargin: 0.02 * _enlargedMultiplier(user_uuid),
-        visible: false,
-      });
 
       // Restore original size after a delay
       Script.setTimeout(() => {
         if (!user_nametags[user_uuid]) return;
         //  unset enlarged variable
-        user_nametags[user_uuid].textSize = null;
-        user_nametags[user_uuid].lines = null;
-        user_nametags[user_uuid].size = {};
         user_nametags[user_uuid].showFullName = false;
         user_nametags[user_uuid].nametagScale = 1;
 
-        Entities.editEntity(user_nametags[user_uuid].text, {
-          lineHeight: _lineHeight(user_uuid),
-          topMargin: 0.02 * _enlargedMultiplier(user_uuid),
-          visible: false,
-        });
-
-        // Adjust nameta after a short delay to allow time for
-        // entity data to update
-        Script.setTimeout(() => {
-          _adjustNametagSize(user_uuid);
-          _adjustNametagPosition(user_uuid);
-        }, 100);
+        _adjustNametag(user_uuid, false); // Nametag will be hidden during adjustment
       }, 6000);
 
     } else {
@@ -829,12 +813,7 @@
     }
     user_nametags[user_uuid].showFullName = true;
 
-    // Adjust nameta after a short delay to allow time for
-    // entity data to update
-    Script.setTimeout(() => {
-      _adjustNametagSize(user_uuid);
-      _adjustNametagPosition(user_uuid);
-    }, 100);
+    _adjustNametag(user_uuid, false);
   }
 
   // Enable or disable nametags
@@ -858,7 +837,7 @@
     _updateActionSet()
 
     if (visible) {
-      myUUID = MyAvatar.sessionUUID;
+      const myUUID = MyAvatar.sessionUUID;
       if (!visibleSelf && user_nametags[myUUID]) _removeUser(myUUID);
       else if (visibleSelf){
         last_camera_mode = Camera.mode; // Update camera before _adjustNametags runs again
