@@ -143,6 +143,22 @@
       : COLOUR_INACTIVE,
       priority: -4.9,
     },
+    {
+      text: textToggle(optionClickable)+" Click to show/expand",
+      localClickFunc: "nametags.toggleClickable",
+      textColor: visible ?
+      textColour(optionClickable)
+      : COLOUR_INACTIVE,
+      priority: -4.9,
+    },
+    {
+      text: textToggle(optionScale)+" Scale with avatar",
+      localClickFunc: "nametags.toggleScale",
+      textColor: visible ?
+      textColour(optionScale)
+      : COLOUR_INACTIVE,
+      priority: -4.9,
+    },
   ];
 
   ContextMenu.registerActionSet("nametags", [{
@@ -161,6 +177,14 @@
     actionSet[1].text = textToggle(visibleSelf)+" My Nametag";
     actionSet[1].textColor = visible ?
     textColour(visibleSelf)
+    : COLOUR_INACTIVE;
+    actionSet[2].text = textToggle(optionClickable)+" Click to show/expand";
+    actionSet[2].textColor = visible ?
+    textColour(optionClickable)
+    : COLOUR_INACTIVE;
+    actionSet[3].text = textToggle(optionScale)+" Scale with avatar";
+    actionSet[3].textColor = visible ?
+    textColour(optionScale)
     : COLOUR_INACTIVE;
 
     ContextMenu.editActionSet("nametags.menu", actionSet);
@@ -397,6 +421,7 @@
   //
   function _handleMessage(channel, message, sender) {
     if (channel === CHANNEL_CLICK_CONTEXT && sender === MyAvatar.sessionUUID) {
+      let data;
       try {
         data = JSON.parse(message)
       } catch (err) {
@@ -415,6 +440,12 @@
               break;
             case "nametags.toggleSelf":
               _toggleVisibleSelf();
+              break;
+            case "nametags.toggleClickable":
+              _toggleClickableAvatars();
+              break;
+            case "nametags.toggleScale":
+              _toggleScaleWithAvatars();
               break;
           }
 
@@ -761,11 +792,13 @@
   function _toggleClickableAvatars() {
     optionClickable = !optionClickable
     Settings.setValue("Nametags_toggleclick", optionClickable);
+    _updateActionSet()
   }
 
   function _toggleScaleWithAvatars() {
     optionScale = !optionScale;
     Settings.setValue("Nametags_togglescale", optionScale);
+    _updateActionSet()
 
     if (visible) {
       print("Adjusting nametags due to toggled scale with avatars option");
