@@ -19,6 +19,7 @@
   const simplifiedNametagsMode = Settings.getValue(SIMPLIFIEDNAMETAGS_DISABLE_FIELD, null);
 
   // Settings
+  const debug = Settings.getValue("Nametags_debug", false); // const to make all debug checks free
   let visible = Settings.getValue("Nametags_toggle", true);
   let visibleSelf = Settings.getValue("Nametags_toggleself", false);
   let optionClickable = Settings.getValue("Nametags_toggleclick", true);
@@ -27,6 +28,12 @@
   const COLOUR_ENABLED = "lightgreen";
   const COLOUR_DISABLED = "red";
   const COLOUR_INACTIVE = [128, 128, 128];
+
+
+  const DEVELOPER_ROOT = "Developer > Apps"
+  const DEVELOPER_SUBMENU = `${DEVELOPER_ROOT}`
+
+  const MENU_DEBUG_NAME = "Debug Nametags";
 
   const MENU_ROOT = "View"
   const MENU_SUBMENU = "Nametags"
@@ -90,6 +97,18 @@
     isActive: visible,
   });
   tabletButton.clicked.connect(_triggerMenuVisible);
+
+  // Developer menu
+  //
+
+  Menu.addMenu(DEVELOPER_ROOT);
+
+  Menu.addMenuItem({
+    menuName: DEVELOPER_SUBMENU,
+    menuItemName: MENU_DEBUG_NAME,
+    isCheckable: true,
+    isChecked: debug,
+  });
 
   // View menu
   //
@@ -377,6 +396,9 @@
 
   function _handleMenuClick(menuItem) {
     switch(menuItem) {
+      case MENU_DEBUG_NAME:
+        _toggleDebug();
+        break;
       case MENU_VISIBLE_NAME:
         _toggleState();
         break;
@@ -402,33 +424,22 @@
   }
 
   function _onActionEvent(action, value) {
-    print(`onActionEvent() : ${action} ( ${actionNamesForID[action]} ) ; ${value}`);
-
-    // TODO: Remove
-    const _LHC = Controller.findAction("LeftHandClick");
-    const _RHC = Controller.findAction("RightHandClick");
-    const _L_H_C = Controller.findAction("LEFT_HAND_CLICK");
-    const _R_H_C = Controller.findAction("RIGHT_HAND_CLICK");
-    print(`Action IDs LeftHandclick(${_LHC}) RightHandClick(${_RHC}) LEFT_HAND_CLICK(${_L_H_C}) RIGHT_HAND_CLICK(${_R_H_C})`);
-    //print("Controller.Actions",JSON.stringify(Controller.Actions));
-    //print("Controller.Standard",JSON.stringify(Controller.Standard));
-    // TODO: Remove
-
-
     const LeftHandClickAction = Controller.findAction("LeftHandClick");
     const RightHandClickAction = Controller.findAction("RightHandClick");
-    print("HandClicks",
-          "Left",LeftHandClickAction,
-          "Right",RightHandClickAction);
-    print("LeftHandClickAction?",
-          LeftHandClickAction === action);
-    print("RightHandClickAction?",
-          RightHandClickAction === action);
+    if (debug) {
+      print("HandClicks",
+            "Left",LeftHandClickAction,
+            "Right",RightHandClickAction);
+      print("LeftHandClickAction?",
+            LeftHandClickAction === action);
+      print("RightHandClickAction?",
+            RightHandClickAction === action);
+    }
 
     if ([LeftHandClickAction,
          RightHandClickAction].includes(action)) { // Act on left or right trigger
       // Controller has clicked!
-      print("Controller has clicked");
+      if (debug) print("Controller has clicked");
       let orientation;
       let position;
 
@@ -437,19 +448,22 @@
         let controllerJointIndex;
         let hand;
         let pose;
+        const ControllerStandard = Controller.Standard;
         if (action === LeftHandClickAction) { // Left trigger
-          print("Pulled left trigger");
+          if (debug) print("Pulled left trigger");
           controllerJointIndex = MyAvatar.getJointIndex("_CAMERA_RELATIVE_CONTROLLER_LEFTHAND");
           hand = ControllerStandard.LeftHand;
         } else { // Right trigger
-          print("Pulled right trigger");
+          if (debug) print("Pulled right trigger");
           controllerJointIndex = MyAvatar.getJointIndex("_CAMERA_RELATIVE_CONTROLLER_RIGHTHAND");
           hand = ControllerStandard.RightHand;
         }
-        print(`controllerJointIndex ${controllerJointIndex}`);
-        print(`hand ${hand}`)
-        pose = Controller.getPoseValue(hand);
-        print(`hand pose ${pose}, valid: ${pose.valid}, ${JSON.stringify(pose)}`);
+        if (debug) {
+          print(`controllerJointIndex ${controllerJointIndex}`);
+          print(`hand ${hand}`)
+          pose = Controller.getPoseValue(hand);
+          print(`hand pose ${pose}, valid: ${pose.valid}, ${JSON.stringify(pose)}`);
+        }
 
         const jointRotation = MyAvatar.getAbsoluteJointRotationInObjectFrame(controllerJointIndex);
         const jointTranslation = MyAvatar.getAbsoluteJointTranslationInObjectFrame(controllerJointIndex);
@@ -474,27 +488,77 @@
                         direction: direction,
       };
 
-      print(`pickRay source: ${JSON.stringify(pickRay.source)} direction: ${JSON.stringify(pickRay.direction)}`)
-
-      // Grab the list of all avatar session UUIDs currently known to the client
-      const avatarIDs = AvatarList.getAvatarIdentifiers();
-
       // Shoot lasers to target; what did we hit?
-      const result = AvatarList.findRayIntersection(pickRay,
-                                   /* include */    avatarIDs,
-                                   /* exclude */    [MyAvatar.sessionUUID],
-                                                    false,);
-
-      print("Laser rayIntersection:", JSON.stringify(result));
+      const result = findRay(pickRay,
+            /* include */    [],
+            /* exclude */    [MyAvatar.sessionUUID],
+                             false,);
 
       if (result.intersects) {
         const targetId = result.avatarID;
         const target = AvatarList.getAvatar(targetId);
-        print(`Laser hit target ${target.displayName}${targetId}`);
+        if (debug) print(`Laser hit target ${target.displayName}${targetId}`);
 
         _handleAvatarClick(result);
       }
+
+
     }
+  }
+
+  function findRay(pickRay,
+                   includes,
+                   excludes,
+                   pickAgainstMesh) {
+
+    const result = AvatarList.findRayIntersection(pickRay,
+                                   /* include */   includes,
+                                   /* exclude */   excludes,
+                                   pickAgainstMesh)
+
+
+
+    if (debug) {
+      print(`pickRay source: ${JSON.stringify(pickRay.source)} direction: ${JSON.stringify(pickRay.direction)}`)
+      print("includes",includes);
+      print("excludes",excludes);
+
+      const visDistance = 30;
+      const source = pickRay.source ? pickRay.source : Camera.position;
+      const visEndPosition = {x: pickRay.direction.x * visDistance,
+                              y: pickRay.direction.y * visDistance,
+                              z: pickRay.direction.z * visDistance};
+
+      print("visEndPosition",JSON.stringify(visEndPosition));
+
+      // Visualisation to show where the ray is going in search of avatars
+      var entity = Entities.addEntity({
+        type: "PolyLine",
+        name: "Nametag PolyLine",
+        position: source,
+        rotation: { z: 0, y: 0, z: 0 },
+        linePoints: [
+            { x: 0, y: 0, z: 0 },
+            visEndPosition,
+        ],
+        normals: [
+            { x: 0.1, y: 0.1, z: 0.1 },
+            { x: 0.1, y: 0.1, z: 0.1 },
+        ],
+        strokeWidths: [ 0.01, 0.01, 0.01 ],
+        color: result.intersects ? { red: 0, green: 255, blue: 0 } // green
+                                : { red: 255, green: 0, blue: 0 }, // red
+        textures: "https://hifi-content/DomainContent/Toybox/flowArts/trails.png",
+        isUVModeStretch: true,
+        lifetime: 10  // Delete after 10 seconds.
+      }, "local");
+
+      print("Created PolyLine",entity);
+
+      print("rayIntersection:", JSON.stringify(result));
+    }
+
+    return result;
   }
 
   function _onMousePress(event) {
@@ -503,13 +567,10 @@
     // Build a PickRay from the camera through the mouse position
     const pickRay = Camera.computePickRay(event.x, event.y);
 
-    // Grab the list of all avatar session UUIDs currently known to the client
-    const avatarIDs = AvatarList.getAvatarIdentifiers();
-
-    const result = AvatarList.findRayIntersection(pickRay,
-                                                  avatarIDs, // include
-                                                  [MyAvatar.sessionUUID], // exclude
-                                                  false,) // pickAgainstMesh
+    const result = findRay(pickRay,
+                           [], // include
+                           [MyAvatar.sessionUUID], // exclude
+                           false); // pickAgainstMesh
 
     if (result.intersects) {
       _handleAvatarClick(result);
@@ -955,6 +1016,21 @@
     _adjustNametag(user_uuid, false);
   }
 
+  // Enable or disable debug
+  function _toggleDebug() {
+    Settings.setValue("Nametags_debug", !debug);
+    // debug is stored as a const and only loaded from settings on script start,
+    // so to toggle it we need to restart the whole script
+    const runningScripts = ScriptDiscoveryService.getRunning();
+    for (const script of runningScripts) {
+      if (script.name === "nametags.js") {
+        print ("Disabling", script.name);
+        ScriptDiscoveryService.stopScript(script.url, true); // restart
+      }
+    }
+
+  }
+
   // Enable or disable nametags
   function _toggleState() {
     visible = !visible;
@@ -1013,6 +1089,9 @@
     Menu.removeMenuItem(MENU_VIEW_SUBMENU, MENU_CLICKABLE_NAME);
     Menu.removeMenuItem(MENU_VIEW_SUBMENU, MENU_SCALE_NAME);
     Menu.removeMenu(MENU_VIEW_SUBMENU);
+    Menu.removeMenuItem(DEVELOPER_SUBMENU, MENU_DEBUG_NAME);
+    // Leaving the menu alone in case other apps are using it
+    // TODO: Check if developer submenu is empty, and remove it if so.
 
     for (let i = 0; Object.keys(user_nametags).length > i; i++) {
       Entities.deleteEntity(user_nametags[Object.keys(user_nametags)[i]].text);
