@@ -72,6 +72,7 @@
   AvatarManager.avatarSessionChangedEvent.connect(_avatarSessionChanged);
   Script.update.connect(_updateNametags); // Delta time
   Controller.mousePressEvent.connect(_onMousePress);
+  Controller.actionEvent.connect(_onActionEvent);
 
   Script.scriptEnding.connect(_scriptEnding); // Script was uninstalled
   Menu.menuItemEvent.connect(_handleMenuClick); // Toggle the nametag
@@ -388,6 +389,111 @@
       case MENU_SCALE_NAME:
         _toggleScaleWithAvatars();
         break;
+    }
+  }
+
+  const actionNamesForID = {};
+  const actionNames = Controller.getActionNames();
+  for (let i = 0, length = actionNames.length; i < length; i++) {
+    const name = actionNames[i];
+    const action = Controller.findAction(name);
+    actionNamesForID[action] = name;
+    print(`${i}| ${name} : ${action}`);
+  }
+
+  function _onActionEvent(action, value) {
+    print(`onActionEvent() : ${action} ( ${actionNamesForID[action]} ) ; ${value}`);
+
+    // TODO: Remove
+    const _LHC = Controller.findAction("LeftHandClick");
+    const _RHC = Controller.findAction("RightHandClick");
+    const _L_H_C = Controller.findAction("LEFT_HAND_CLICK");
+    const _R_H_C = Controller.findAction("RIGHT_HAND_CLICK");
+    print(`Action IDs LeftHandclick(${_LHC}) RightHandClick(${_RHC}) LEFT_HAND_CLICK(${_L_H_C}) RIGHT_HAND_CLICK(${_R_H_C})`);
+    //print("Controller.Actions",JSON.stringify(Controller.Actions));
+    //print("Controller.Standard",JSON.stringify(Controller.Standard));
+    // TODO: Remove
+
+
+    const LeftHandClickAction = Controller.findAction("LeftHandClick");
+    const RightHandClickAction = Controller.findAction("RightHandClick");
+    print("HandClicks",
+          "Left",LeftHandClickAction,
+          "Right",RightHandClickAction);
+    print("LeftHandClickAction?",
+          LeftHandClickAction === action);
+    print("RightHandClickAction?",
+          RightHandClickAction === action);
+
+    if ([LeftHandClickAction,
+         RightHandClickAction].includes(action)) { // Act on left or right trigger
+      // Controller has clicked!
+      print("Controller has clicked");
+      let orientation;
+      let position;
+
+      if (HMD.isHandControllerAvailable()) { // Are they VR controllers?
+        // Where is the laser pointing?
+        let controllerJointIndex;
+        let hand;
+        let pose;
+        if (action === LeftHandClickAction) { // Left trigger
+          print("Pulled left trigger");
+          controllerJointIndex = MyAvatar.getJointIndex("_CAMERA_RELATIVE_CONTROLLER_LEFTHAND");
+          hand = ControllerStandard.LeftHand;
+        } else { // Right trigger
+          print("Pulled right trigger");
+          controllerJointIndex = MyAvatar.getJointIndex("_CAMERA_RELATIVE_CONTROLLER_RIGHTHAND");
+          hand = ControllerStandard.RightHand;
+        }
+        print(`controllerJointIndex ${controllerJointIndex}`);
+        print(`hand ${hand}`)
+        pose = Controller.getPoseValue(hand);
+        print(`hand pose ${pose}, valid: ${pose.valid}, ${JSON.stringify(pose)}`);
+
+        const jointRotation = MyAvatar.getAbsoluteJointRotationInObjectFrame(controllerJointIndex);
+        const jointTranslation = MyAvatar.getAbsoluteJointTranslationInObjectFrame(controllerJointIndex);
+
+        orientation = Quat.multiply(MyAvatar.orientation,
+                                    jointRotation);
+        position = Vec3.sum(MyAvatar.position,
+                            Vec3.multiplyQbyV(MyAvatar.orientation,
+                                              jointTranslation));
+
+      } else { // Probably a standard controller
+        // Assume camera is looking at the target
+        orientation = Camera.orientation;
+        position = Camera.position;
+
+      }
+
+      const direction = Vec3.multiplyQbyV(orientation, [0, 1, 0]);
+
+      // Build a pickray from the controller in the direction of the laser
+      const pickRay = { source: position,
+                        direction: direction,
+      };
+
+      print(`pickRay source: ${JSON.stringify(pickRay.source)} direction: ${JSON.stringify(pickRay.direction)}`)
+
+      // Grab the list of all avatar session UUIDs currently known to the client
+      const avatarIDs = AvatarList.getAvatarIdentifiers();
+
+      // Shoot lasers to target; what did we hit?
+      const result = AvatarList.findRayIntersection(pickRay,
+                                   /* include */    avatarIDs,
+                                   /* exclude */    [MyAvatar.sessionUUID],
+                                                    false,);
+
+      print("Laser rayIntersection:", JSON.stringify(result));
+
+      if (result.intersects) {
+        const targetId = result.avatarID;
+        const target = AvatarList.getAvatar(targetId);
+        print(`Laser hit target ${target.displayName}${targetId}`);
+
+        _handleAvatarClick(result);
+      }
     }
   }
 
