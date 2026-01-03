@@ -254,7 +254,7 @@
         let wordSize = Entities.textSize(textEntityId, word);
         if (wordSize.width >= MAX_WORD_WIDTH) {
           let sub = ' ';
-          charCount = 0;
+          let charCount = 0;
           for (const char of word) {
             charCount++;
             testLine = `${currentLine}${sub+char}`
