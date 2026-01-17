@@ -6,31 +6,80 @@
 // See the accompanying file LICENSE or http://www.apache.org/licenses/LICENSE-2.0.html
 
 (function () {
+  "use strict";
 
   const ContextMenu = Script.require("contextMenu");
 
-  "use strict";
+  const SIMPLIFIEDNAMETAGS_DISABLE_FIELD = "simplifiedNametag/avatarNametagMode";
+  const SIMPLIFIEDNAMETAGS_DISABLE_VALUE = "off";
+
   let user_nametags = {};
-  let maximum_name_length = 50;
   let last_camera_mode = Camera.mode;
+  let simplifiedNametagsUrl;
+  const simplifiedNametagsMode = Settings.getValue(SIMPLIFIEDNAMETAGS_DISABLE_FIELD, null);
 
   // Settings
+  const debug = Settings.getValue("Nametags_debug", false); // const to make all debug checks free
   let visible = Settings.getValue("Nametags_toggle", true);
   let visibleSelf = Settings.getValue("Nametags_toggleself", false);
+  let optionClickable = Settings.getValue("Nametags_toggleclick", true);
+  let optionScale = Settings.getValue("Nametags_togglescale", true);
 
   const COLOUR_ENABLED = "lightgreen";
   const COLOUR_DISABLED = "red";
   const COLOUR_INACTIVE = [128, 128, 128];
 
-  const MENU_VISIBLE_MENU = "View";
-  const MENU_VISIBLE_NAME = "Nametags";
 
-  _updateList();
+  const DEVELOPER_ROOT = "Developer > Apps"
+  const DEVELOPER_SUBMENU = `${DEVELOPER_ROOT}`
 
-  AvatarManager.avatarAddedEvent.connect(_addUser); // New user connected
+  const MENU_DEBUG_NAME = "Debug Nametags";
+
+  const MENU_ROOT = "View"
+  const MENU_SUBMENU = "Nametags"
+  const MENU_VIEW_SUBMENU = `${MENU_ROOT} > ${MENU_SUBMENU}`
+
+  const MENU_VISIBLE_NAME = "Always shown";
+  const MENU_VISIBLESELF_NAME = "Show my nametag";
+  const MENU_CLICKABLE_NAME = "Click avatar to show/expand";
+  const MENU_SCALE_NAME = "Scale with avatar";
+
+  const DEFAULT_ENTITY_DIMENSIONS = { x: 0.8, y: 0.2, z: 0.1 };
+  const DEFAULT_LINE_HEIGHT = 0.1;
+  const ENLARGED_MULTIPLIER = 4;
+
+  setup();
+
+  function setup() {
+    // Disable built in nametags
+    //  after a delay to (hopefully) ensure other scripts have been loaded
+    const runningScripts = ScriptDiscoveryService.getRunning();
+    for (const script of runningScripts) {
+      if (script.name === "simplifiedNametag.js") {
+        print ("Disabling", script.name);
+        ScriptDiscoveryService.stopScript(script.url);
+        simplifiedNametagsUrl = script.url;
+      }
+    }
+
+    // if simplifiedNametag has not loaded yet we can set it to off before it loads
+    if (!simplifiedNametagsUrl) {
+      print ("Turning off simplifiedNametags");
+      Settings.setValue(SIMPLIFIEDNAMETAGS_DISABLE_FIELD,
+                        SIMPLIFIEDNAMETAGS_DISABLE_VALUE)
+    }
+
+    if (visible) _updateList();
+  }
+
+
+
+  AvatarManager.avatarAddedEvent.connect(_handleConnectingUser); // New user connected
   AvatarManager.avatarRemovedEvent.connect(_removeUser); // User disconnected
   AvatarManager.avatarSessionChangedEvent.connect(_avatarSessionChanged);
-  Script.update.connect(_adjustNametags); // Delta time
+  Script.update.connect(_updateNametags); // Delta time
+  Controller.mousePressEvent.connect(_onMousePress);
+  Controller.actionEvent.connect(_onActionEvent);
 
   Script.scriptEnding.connect(_scriptEnding); // Script was uninstalled
   Menu.menuItemEvent.connect(_handleMenuClick); // Toggle the nametag
@@ -47,15 +96,52 @@
     text: "NAMETAGS",
     isActive: visible,
   });
-  tabletButton.clicked.connect(_toggleState);
+  tabletButton.clicked.connect(_triggerMenuVisible);
 
-  // Menu item
+  // Developer menu
+  //
+
+  Menu.addMenu(DEVELOPER_ROOT);
+
   Menu.addMenuItem({
-    menuName: MENU_VISIBLE_MENU,
+    menuName: DEVELOPER_SUBMENU,
+    menuItemName: MENU_DEBUG_NAME,
+    isCheckable: true,
+    isChecked: debug,
+  });
+
+  // View menu
+  //
+
+  Menu.addMenu(MENU_VIEW_SUBMENU);
+
+  Menu.addMenuItem({
+    menuName: MENU_VIEW_SUBMENU,
     menuItemName: MENU_VISIBLE_NAME,
     shortcutKey: "CTRL+N",
     isCheckable: true,
     isChecked: visible,
+  });
+
+  Menu.addMenuItem({
+    menuName: MENU_VIEW_SUBMENU,
+    menuItemName: MENU_VISIBLESELF_NAME,
+    isCheckable: true,
+    isChecked: visibleSelf,
+  });
+
+  Menu.addMenuItem({
+    menuName: MENU_VIEW_SUBMENU,
+    menuItemName: MENU_CLICKABLE_NAME,
+    isCheckable: true,
+    isChecked: optionClickable,
+  });
+
+  Menu.addMenuItem({
+    menuName: MENU_VIEW_SUBMENU,
+    menuItemName: MENU_SCALE_NAME,
+    isCheckable: true,
+    isChecked: optionScale,
   });
 
 
@@ -74,6 +160,22 @@
       localClickFunc: "nametags.toggleSelf",
       textColor: visible ?
       textColour(visibleSelf)
+      : COLOUR_INACTIVE,
+      priority: -4.9,
+    },
+    {
+      text: textToggle(optionClickable)+" Click to show/expand",
+      localClickFunc: "nametags.toggleClickable",
+      textColor: visible ?
+      textColour(optionClickable)
+      : COLOUR_INACTIVE,
+      priority: -4.9,
+    },
+    {
+      text: textToggle(optionScale)+" Scale with avatar",
+      localClickFunc: "nametags.toggleScale",
+      textColor: visible ?
+      textColour(optionScale)
       : COLOUR_INACTIVE,
       priority: -4.9,
     },
@@ -96,6 +198,14 @@
     actionSet[1].textColor = visible ?
     textColour(visibleSelf)
     : COLOUR_INACTIVE;
+    actionSet[2].text = textToggle(optionClickable)+" Click to show/expand";
+    actionSet[2].textColor = visible ?
+    textColour(optionClickable)
+    : COLOUR_INACTIVE;
+    actionSet[3].text = textToggle(optionScale)+" Scale with avatar";
+    actionSet[3].textColor = visible ?
+    textColour(optionScale)
+    : COLOUR_INACTIVE;
 
     ContextMenu.editActionSet("nametags.menu", actionSet);
   }
@@ -104,9 +214,96 @@
   // Helper functions
   //
 
+  const MAX_LINE_WIDTH = 1;
+  const MAX_WORD_WIDTH = 0.5;
+  const MIN_WORD_LENGTH = 5;
+  const MAX_LINES = 3;
+  /*
+   * Takes the displayName and inserts linebreaks
+   * where appropriate to keep it under a certain
+   * width when displayed on the user's nametag.
+   */
+  function calculateLines(user_uuid, text) {
+    const textEntityId = user_nametags[user_uuid].text
+    const words = text.split(/\s+/);
+    const lines = [];
+    let currentLine = '';
+    let lineCount = 0;
+
+    const moreThanMaxLines = () => !user_nametags[user_uuid].showFullName && lineCount != null && lineCount >= MAX_LINES;
+
+    // Iterate over each word to check the line length with each word appended
+    // If it becomes too long, creates a new line with that that word and
+    // continues; for very long words will instead iterate over each character
+    // and will insert a line break in the middle of the word where appropriate.
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      let testLine = currentLine ?
+                        `${currentLine} ${word}`
+                        : word;
+      let lineSize = Entities.textSize(textEntityId, testLine);
+
+      const maxLineWidth = MAX_LINE_WIDTH * _enlargedMultiplier(user_uuid);
+
+      if (lineSize.width <= maxLineWidth) {
+        currentLine = testLine;
+      } else {
+        if (moreThanMaxLines()) break;
+
+        // But what if a single word is too long?
+        let wordSize = Entities.textSize(textEntityId, word);
+        if (wordSize.width >= MAX_WORD_WIDTH) {
+          let sub = ' ';
+          let charCount = 0;
+          for (const char of word) {
+            charCount++;
+            testLine = `${currentLine}${sub+char}`
+            const testWord = currentLine + ' ' + sub + char;
+            lineSize = Entities.textSize(textEntityId, testLine);
+            if (lineSize.width <= maxLineWidth) {
+              sub = sub+char;
+            } else {
+              if (charCount >= MIN_WORD_LENGTH) {
+                lines.push(testLine);
+                lineCount++;
+                if (moreThanMaxLines()) break;
+                sub = '';
+                currentLine = sub;
+              } else {
+                lines.push(currentLine);
+                lineCount++;
+                if (moreThanMaxLines()) break;
+                sub = sub+char;
+                currentLine = '';
+              }
+            }
+          }
+          currentLine = sub;
+        } else {
+          lines.push(currentLine);
+          lineCount++;
+
+          if (moreThanMaxLines()) break;
+
+          currentLine = word;
+        }
+      }
+    }
+
+    if (currentLine && (user_nametags[user_uuid].showFullName || lineCount < MAX_LINES)) {
+      lines.push(currentLine);
+    }
+
+    if (!user_nametags[user_uuid].showFullName && lineCount === MAX_LINES) {
+      lines[MAX_LINES-1] = lines[MAX_LINES-1]+"...";
+    }
+
+    return lines;
+  }
+
   // Avatar display name as shown on nametags
   function _displayName(user) {
-    return user.displayName ? user.displayName.substring(0, maximum_name_length) : "Anonymous"
+    return user.displayName ? user.displayName : "Anonymous"
   }
 
   // There is no built in way to know if an avatar
@@ -121,17 +318,43 @@
     && user.getAbsoluteJointTranslationInObjectFrame(headJointIndex).y != 0;
   }
 
+  function _enlargedMultiplier(user_uuid) {
+    const user = AvatarList.getAvatar(user_uuid);
+    const scale = user.scale;
+    const nametagScale = user_nametags[user_uuid].nametagScale;
+
+    // Scale nametag as set (by distance, probably)
+    const finalNametagScale = nametagScale ? nametagScale : 1;
+
+    // Scale with avatars
+    //  but not if nametags are supposed to be larger
+    const finalScale = optionScale && finalNametagScale === 1 ? scale : 1;
+
+    const finalMultiplier = finalNametagScale*finalScale;
+    return finalMultiplier;
+  }
+
+  function _lineHeight(user_uuid) {
+    return DEFAULT_LINE_HEIGHT * _enlargedMultiplier(user_uuid);
+  }
+
   // Nametag position for use in creating or adjusting nametag entities
-  function _nametagPosition(user) {
+  function _nametagPosition(user_uuid) {
+    const user = AvatarList.getAvatar(user_uuid);
     const headJointIndex = user.getJointIndex("Head");
     const jointInObjectFrame = user.getAbsoluteJointTranslationInObjectFrame(headJointIndex);
+    const scale = user.scale;
+    const nameTagHeight = user_nametags[user_uuid].size.height
+    const newY = jointInObjectFrame.y + 0.4*Math.max(0.4, Math.min(scale, 4)) + (nameTagHeight/2)
+    print(`User ${user.displayName}${user_uuid} Head: ${headJointIndex}, y: ${jointInObjectFrame.y} scale: ${scale}, newY: ${newY}`);
     return Vec3.sum(user.position,
                     {
                       x: 0.01,
-                      y: jointInObjectFrame.y + 0.4*Math.max(0.4, Math.min(user.scale, 4)),
-                    z: 0,
+                      y: newY,
+                      z: 0,
                     });
   }
+
 
   // ContextMenu helpers
   //
@@ -156,7 +379,7 @@
         if (user_nametags[oldSessionUUID]) _removeUser(oldSessionUUID);
     }
 
-    if (newSessionUUID !== null) {
+    if (visible && newSessionUUID !== null) {
       // This is MyAvatar only if MyAvatar.sessionUUID matches either oldSessionUUID, newSessionUUID or "{00000000-0000-0000-0000-000000000001}"
       const isSelf = [oldSessionUUID, "{00000000-0000-0000-0000-000000000001}", newSessionUUID].includes(MyAvatar.sessionUUID);
 
@@ -172,9 +395,190 @@
   }
 
   function _handleMenuClick(menuItem) {
-    if (MENU_VISIBLE_NAME === menuItem) {
-      _toggleState();
+    switch(menuItem) {
+      case MENU_DEBUG_NAME:
+        _toggleDebug();
+        break;
+      case MENU_VISIBLE_NAME:
+        _toggleState();
+        break;
+      case MENU_VISIBLESELF_NAME:
+        _toggleVisibleSelf();
+        break;
+      case MENU_CLICKABLE_NAME:
+        _toggleClickableAvatars();
+        break;
+      case MENU_SCALE_NAME:
+        _toggleScaleWithAvatars();
+        break;
     }
+  }
+
+  const actionNamesForID = {};
+  const actionNames = Controller.getActionNames();
+  for (let i = 0, length = actionNames.length; i < length; i++) {
+    const name = actionNames[i];
+    const action = Controller.findAction(name);
+    actionNamesForID[action] = name;
+    print(`${i}| ${name} : ${action}`);
+  }
+
+  function _onActionEvent(action, value) {
+    const LeftHandClickAction = Controller.findAction("LeftHandClick");
+    const RightHandClickAction = Controller.findAction("RightHandClick");
+    if (debug) {
+      print("HandClicks",
+            "Left",LeftHandClickAction,
+            "Right",RightHandClickAction);
+      print("LeftHandClickAction?",
+            LeftHandClickAction === action);
+      print("RightHandClickAction?",
+            RightHandClickAction === action);
+    }
+
+    if ([LeftHandClickAction,
+         RightHandClickAction].includes(action)) { // Act on left or right trigger
+      // Controller has clicked!
+      if (debug) print("Controller has clicked");
+      let orientation;
+      let position;
+
+      if (HMD.isHandControllerAvailable()) { // Are they VR controllers?
+        // Where is the laser pointing?
+        let controllerJointIndex;
+        let hand;
+        let pose;
+        const ControllerStandard = Controller.Standard;
+        if (action === LeftHandClickAction) { // Left trigger
+          if (debug) print("Pulled left trigger");
+          controllerJointIndex = MyAvatar.getJointIndex("_CAMERA_RELATIVE_CONTROLLER_LEFTHAND");
+          hand = ControllerStandard.LeftHand;
+        } else { // Right trigger
+          if (debug) print("Pulled right trigger");
+          controllerJointIndex = MyAvatar.getJointIndex("_CAMERA_RELATIVE_CONTROLLER_RIGHTHAND");
+          hand = ControllerStandard.RightHand;
+        }
+        if (debug) {
+          print(`controllerJointIndex ${controllerJointIndex}`);
+          print(`hand ${hand}`)
+          pose = Controller.getPoseValue(hand);
+          print(`hand pose ${pose}, valid: ${pose.valid}, ${JSON.stringify(pose)}`);
+        }
+
+        const jointRotation = MyAvatar.getAbsoluteJointRotationInObjectFrame(controllerJointIndex);
+        const jointTranslation = MyAvatar.getAbsoluteJointTranslationInObjectFrame(controllerJointIndex);
+
+        orientation = Quat.multiply(MyAvatar.orientation,
+                                    jointRotation);
+        position = Vec3.sum(MyAvatar.position,
+                            Vec3.multiplyQbyV(MyAvatar.orientation,
+                                              jointTranslation));
+
+      } else { // Probably a standard controller
+        // Assume camera is looking at the target
+        orientation = Camera.orientation;
+        position = Camera.position;
+
+      }
+
+      const direction = Vec3.multiplyQbyV(orientation, [0, 1, 0]);
+
+      // Build a pickray from the controller in the direction of the laser
+      const pickRay = { source: position,
+                        direction: direction,
+      };
+
+      // Shoot lasers to target; what did we hit?
+      const result = findRay(pickRay,
+            /* include */    [],
+            /* exclude */    [MyAvatar.sessionUUID],
+                             false,);
+
+      if (result.intersects) {
+        const targetId = result.avatarID;
+        const target = AvatarList.getAvatar(targetId);
+        if (debug) print(`Laser hit target ${target.displayName}${targetId}`);
+
+        _handleAvatarClick(result);
+      }
+
+
+    }
+  }
+
+  function findRay(pickRay,
+                   includes,
+                   excludes,
+                   pickAgainstMesh) {
+
+    const result = AvatarList.findRayIntersection(pickRay,
+                                   /* include */   includes,
+                                   /* exclude */   excludes,
+                                   pickAgainstMesh)
+
+
+
+    if (debug) {
+      print(`pickRay source: ${JSON.stringify(pickRay.source)} direction: ${JSON.stringify(pickRay.direction)}`)
+      print("includes",includes);
+      print("excludes",excludes);
+
+      const visDistance = 30;
+      const source = pickRay.source ? pickRay.source : Camera.position;
+      const visEndPosition = {x: pickRay.direction.x * visDistance,
+                              y: pickRay.direction.y * visDistance,
+                              z: pickRay.direction.z * visDistance};
+
+      print("visEndPosition",JSON.stringify(visEndPosition));
+
+      // Visualisation to show where the ray is going in search of avatars
+      var entity = Entities.addEntity({
+        type: "PolyLine",
+        name: "Nametag PolyLine",
+        position: source,
+        rotation: { z: 0, y: 0, z: 0 },
+        linePoints: [
+            { x: 0, y: 0, z: 0 },
+            visEndPosition,
+        ],
+        normals: [
+            { x: 0.1, y: 0.1, z: 0.1 },
+            { x: 0.1, y: 0.1, z: 0.1 },
+        ],
+        strokeWidths: [ 0.01, 0.01, 0.01 ],
+        color: result.intersects ? { red: 0, green: 255, blue: 0 } // green
+                                : { red: 255, green: 0, blue: 0 }, // red
+        textures: "https://hifi-content/DomainContent/Toybox/flowArts/trails.png",
+        isUVModeStretch: true,
+        lifetime: 10  // Delete after 10 seconds.
+      }, "local");
+
+      print("Created PolyLine",entity);
+
+      print("rayIntersection:", JSON.stringify(result));
+    }
+
+    return result;
+  }
+
+  function _onMousePress(event) {
+    if (!optionClickable || event.button !== "LEFT") return; // Only left-click
+
+    // Build a PickRay from the camera through the mouse position
+    const pickRay = Camera.computePickRay(event.x, event.y);
+
+    const result = findRay(pickRay,
+                           [], // include
+                           [MyAvatar.sessionUUID], // exclude
+                           false); // pickAgainstMesh
+
+    if (result.intersects) {
+      _handleAvatarClick(result);
+    }
+  }
+
+  function _handleConnectingUser(user_uuid) {
+    if (visible) _addUser(user_uuid);
   }
 
   // Message handling
@@ -184,6 +588,7 @@
   //
   function _handleMessage(channel, message, sender) {
     if (channel === CHANNEL_CLICK_CONTEXT && sender === MyAvatar.sessionUUID) {
+      let data;
       try {
         data = JSON.parse(message)
       } catch (err) {
@@ -198,10 +603,16 @@
           console.log('Func:', func);
           switch (func) {
             case "nametags.toggle":
-              _toggleState();
+              _triggerMenuVisible();
               break;
             case "nametags.toggleSelf":
               _toggleVisibleSelf();
+              break;
+            case "nametags.toggleClickable":
+              _toggleClickableAvatars();
+              break;
+            case "nametags.toggleScale":
+              _toggleScaleWithAvatars();
               break;
           }
 
@@ -212,43 +623,77 @@
     }
   };
 
+  // There is no way to change the visible toggle state of a menu item
+  // without also triggering the menu action. So to keep it in sync, we
+  // must instead always trigger the menu item whenever we want to
+  // change the visible state.
+  function _triggerMenuVisible() {
+    Menu.triggerOption(MENU_VISIBLE_NAME);
+  }
+
 
   // Business functions
   //
 
   // Add a user to the user list
-  function _addUser(user_uuid) {
-    if (!visible
-        || (!visibleSelf
+  function _addUser(user_uuid, user_num, all_uuids, nametagScale) {
+    if ((!visibleSelf
             && user_uuid === MyAvatar.sessionUUID)
         || user_nametags[user_uuid]) return;
 
     const user = AvatarList.getAvatar(user_uuid);
     const display_name = _displayName(user);
 
-    console.log(`Registering ${display_name} (${user_uuid}) nametag`);
+    console.log(`Registering ${user_num??'-'} ${display_name} (${user_uuid}) nametag @nametagScale ${nametagScale ?? 1}`);
 
-    user_nametags[user_uuid] = { text: {}, background: {}, scale: user.scale, displayName: display_name, skeletonModelURL: user.skeletonModelURL };
+    user_nametags[user_uuid] = {
+      text: {},
+      background: {},
+      scale: user.scale,
+      displayName: display_name,
+      skeletonModelURL: user.skeletonModelURL,
+      size: {},
+      visible: false,
+      showFullName: false,
+      nametagScale: nametagScale ?? 1,
+    };
 
+    _createNametagEntity(user_uuid,
+                         display_name);
+
+    // We need to have this on a timeout because "textSize" can not be determined instantly after the entity was created.
+    // https://apidocs.overte.org/Entities.html#.textSize
+    Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
+
+    if (!_hasAvatarLoaded(user) || !user_nametags[user_uuid].size.height) {
+      // Avatar has not finished loading yet;
+      //  we'll reposition when it's ready.
+      print("Avatar is not loaded yet. Will retry...");
+      Script.setTimeout(() => {_adjustNametagPosition(user_uuid)}, 200);
+    }
+  }
+
+  function _createNametagEntity(user_uuid, display_name) {
     user_nametags[user_uuid].text = Entities.addEntity(
       {
         type: "Text",
         text: display_name,
         backgroundAlpha: 0.0,
         billboardMode: "full",
-        dimensions: { x: 0.8, y: 0.2, z: 0.1 },
+        dimensions: DEFAULT_ENTITY_DIMENSIONS,
         unlit: true,
         parentID: user_uuid,
-        position: _nametagPosition(user),
+        position: _nametagPosition(user_uuid),
         visible: true,
         isSolid: false,
-        topMargin: 0.025,
+        topMargin: 0.02 * _enlargedMultiplier(user_uuid),
         alignment: "center",
-        lineHeight: 0.1,
+        lineHeight: _lineHeight(user_uuid),
         canCastShadow: false,
         grab: {
           grabbable: false
-        }
+        },
+        visible: false,
       },
       "local"
     );
@@ -259,28 +704,18 @@
         emissive: true,
         alpha: 0.8,
         keepAspectRatio: false,
-        position: _nametagPosition(user),
+        position: _nametagPosition(user_uuid),
         parentID: user_nametags[user_uuid].text,
         billboardMode: "full",
         imageURL: Script.resolvePath("./assets/badge.svg"),
         canCastShadow: false,
         grab: {
           grabbable: false
-        }
+        },
+        visible: false,
       },
       "local"
     );
-
-    if (!_hasAvatarLoaded(user)) {
-      // Avatar has not finished loading yet;
-      //  we'll reposition when it's ready.
-      print("Avatar is not loaded yet. Will retry...");
-      _adjustNametagPosition(user_uuid);
-    }
-
-    // We need to have this on a timeout because "textSize" can not be determined instantly after the entity was created.
-    // https://apidocs.overte.org/Entities.html#.textSize
-    Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
   }
 
   function _MonitorAvatarLoading(user) {
@@ -301,14 +736,21 @@
     }
   }
 
-  function _adjustNametag(user_uuid) {
+  function _updateNametag(user_uuid) {
     const user = AvatarList.getAvatar(user_uuid);
 
     if (user.scale !== user_nametags[user_uuid].scale) {
       // Avatar is rescaling...
 
-      // TODO: Hide nametag until done
-
+      if (user_nametags[user_uuid].visible === true) {
+        Entities.editEntity(user_nametags[user_uuid].text, {
+          visible: false,
+        });
+        Entities.editEntity(user_nametags[user_uuid].background, {
+          visible: false,
+        });
+        user_nametags[user_uuid].visible = false;
+      }
 
       user_nametags[user_uuid].scale = user.scale
       user_nametags[user_uuid].rescaling = true;
@@ -316,7 +758,9 @@
       // User has finished rescaling,
       //  but there may be a delay before the avatar finishes resizing.
       Script.setTimeout(() => {
-        _adjustNametagPosition(user_uuid);
+        if (!user_nametags[user_uuid].rescaling) {
+          _adjustNametag(user_uuid);
+        }
       }, 3000);
 
       user_nametags[user_uuid].rescaling = false;
@@ -335,17 +779,15 @@
     if (newName !== oldName) {
       const display_name = _displayName(user);
       print(`New displayName ${display_name} (${newName}) for ${oldName}`)
-      Entities.editEntity(user_nametags[user_uuid].text, {
-        text: display_name,
-      });
+
       user_nametags[user_uuid].displayName = newName;
-      // Adjust nametag size to accomodate new displayName
-      _adjustNametagSize(user_uuid);
+
+      _adjustNametag(user_uuid);
     }
   }
 
   // Updates positions of existing nametags
-  function _adjustNametags() {
+  function _updateNametags() {
     if (!visible) return;
 
     if (visibleSelf) {
@@ -357,8 +799,30 @@
     }
 
     Object.keys(user_nametags).forEach((user_uuid) => {
-      _adjustNametag(user_uuid);
+      _updateNametag(user_uuid);
     });
+  }
+
+  function _adjustNametag(user_uuid, visible) {
+    // Update lineHeight and margins early to allow the entity to update
+    // before requesting textSize
+    Entities.editEntity(user_nametags[user_uuid].text, {
+                        lineHeight: _lineHeight(user_uuid),
+                        topMargin: 0.02 * _enlargedMultiplier(user_uuid),
+                        visible: visible ?? true,
+    });
+
+    // Delay adjusting, to give the text entity time to catch up
+    Script.setTimeout(() => {
+      // Clear the cached textSize and display lines
+      // so they may be recalculated
+      user_nametags[user_uuid].textSize = null;
+      user_nametags[user_uuid].lines = null;
+      user_nametags[user_uuid].size = {};
+
+      _adjustNametagSize(user_uuid);
+      _adjustNametagPosition(user_uuid);
+    }, 100);
   }
 
   function _adjustNametagPosition(user_uuid) {
@@ -368,56 +832,117 @@
     if (!_hasAvatarLoaded(user)) {
       // Avatar has not finished loading yet;
       //  we'll reposition when it's ready.
-      print("Avatar is not loaded yet. Will retry...");
+      print(`${user_uuid}Avatar is not loaded yet. Will retry...`);
       _MonitorAvatarLoading(user);
       return
+    } else if (!user_nametags[user_uuid].size.height) {
+      print(`${user_uuid}Height not computed yet. Waiting...`);
+      Script.setTimeout(() => {
+        _adjustNametagPosition(user_uuid);
+      }, 100);
+      return;
     }
 
     Entities.editEntity(user_nametags[user_uuid].text, {
-      position: _nametagPosition(user),
+      position: _nametagPosition(user_uuid),
+      visible: true,
     });
+
+    Entities.editEntity(user_nametags[user_uuid].background, {
+      visible: true,
+    });
+    user_nametags[user_uuid].visible = true
   }
 
   // Resize user's nametag entity
   function _adjustNametagSize(user_uuid) {
     const user = AvatarList.getAvatar(user_uuid);
-    const display_name = _displayName(user);
-    let textSize = Entities.textSize(user_nametags[user_uuid].text, display_name);
+    const scale = user.scale;
+    const displayName = _displayName(user);
+    let displayNameLines;
+    let displayNameString;
 
-    if (textSize.width === 0 || textSize.height === 0) {
-      // Text size cannot be calculated immediately after entity creation;
-      // We'll keep trying until textSize does not report 0.
-      Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
-      return;
-    } else if (textSize.height <= 0.08
-            || textSize.height >= 0.2
-            || textSize.height === null) {
-      // Text size returns unexpected values during entity
-      // creation. When entity sizes are too large, too small
-      // or invalid we ignore them.
-      // See https://github.com/overte-org/overte/issues/1897.
-      print(`!!! Text size for ${display_name} is an unexpected ${JSON.stringify(textSize)}; Not sizing yet.`);
-      Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
-      return;
+    let textSizeRaw = Entities.textSize(user_nametags[user_uuid].text, displayName);
+    const multiplier =  _enlargedMultiplier(user_uuid);
+    const enlarged = user_nametags[user_uuid].nametagScale != 1;
+
+    if (!user_nametags[user_uuid].textSize) {
+
+      // textSize has not yet been cached; we will calculate and cache it
+      if (textSizeRaw.width === 0 || textSizeRaw.height === 0) {
+        // Text size cannot be calculated immediately after entity creation;
+        // We'll keep trying until textSize does not report 0.
+        Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
+        return;
+      } else if (textSizeRaw.height <= 0.08*multiplier
+        || textSizeRaw.height >= 0.2*multiplier
+        || textSizeRaw.height == null
+        || Number.isNaN(textSizeRaw.height)) {
+        // Text size returns unexpected values during entity
+        // creation. When entity sizes are too large, too small
+        // or invalid we ignore them.
+        // See https://github.com/overte-org/overte/issues/1897.
+        print(`!!! Text size for ${displayName} is an unexpected ${JSON.stringify(textSizeRaw)}; Not sizing yet.`);
+        Script.setTimeout(() => {_adjustNametagSize(user_uuid)}, 100);
+        return;
+      } else {
+        print(`${displayName} height type: ${typeof textSizeRaw.height} value: ${textSizeRaw.height}`);
+        print(`Text size for ${displayName} is ${JSON.stringify(textSizeRaw)}`);
+
+        if (!user_nametags[user_uuid].lines) {
+          displayNameLines = calculateLines(user_uuid, displayName);
+          user_nametags[user_uuid].lines = displayNameLines;
+        } else {
+          displayNameLines = user_nametags[user_uuid].lines;
+        }
+        print("Lines:", JSON.stringify(displayNameLines));
+
+        displayNameString = displayNameLines.join('\n');
+        textSizeRaw = Entities.textSize(user_nametags[user_uuid].text, displayNameString);
+
+        user_nametags[user_uuid].textSize = { width: textSizeRaw.width, height: textSizeRaw.height };
+      }
     } else {
-      print(`Text size for ${display_name} is ${JSON.stringify(textSize)}`);
+      displayNameLines = user_nametags[user_uuid].lines
     }
+
+    //user_nametags[user_uuid].lines = displayNameLines.length
+
+    // Load textSize from cache
+    const textSizeCache = user_nametags[user_uuid].textSize;
+    print("textSizeCache:",JSON.stringify(textSizeCache));
+
+    print("textSize fresh:",
+          JSON.stringify(Entities.textSize(user_nametags[user_uuid].text,
+                                           displayNameString)));
+
+    let newWidth = textSizeCache.width + (0.25*multiplier);
+    let newHeight = textSizeCache.height + (0.05*multiplier);
+    print("newWidth:",newWidth,"newHeight:",newHeight);
+    user_nametags[user_uuid].size.width = newWidth
+    user_nametags[user_uuid].size.height = newHeight
+    const renderLayer = enlarged ? "front" : "world";
 
     Entities.editEntity(user_nametags[user_uuid].text,
                         {
+                          text: displayNameString,
                           dimensions: {
-                            x: textSize.width + 0.25,
-                            y: textSize.height + 0.07,
+                            x: newWidth,
+                            y: newHeight,
                             z: 0.1,
-                          }
+                          },
+                          lineHeight: _lineHeight(user_uuid),
+                          renderLayer: renderLayer,
+                          topMargin: 0.02 * multiplier,
                         });
     Entities.editEntity(user_nametags[user_uuid].background,
                         {
                           dimensions: {
-                            x: Math.max(textSize.width + 0.25, 0.6),
-                        y: textSize.height + 0.05,
-                        z: 0.1,
+                            x: newWidth,
+                            y: newHeight,
+                            z: 0.1,
                           },
+                          renderLayer: renderLayer,
                         });
   }
 
@@ -429,6 +954,81 @@
       Entities.deleteEntity(user_nametags[user_uuid].background);
       delete user_nametags[user_uuid];
     }
+  }
+
+  function _toggleClickableAvatars() {
+    optionClickable = !optionClickable
+    Settings.setValue("Nametags_toggleclick", optionClickable);
+    _updateActionSet()
+  }
+
+  function _toggleScaleWithAvatars() {
+    optionScale = !optionScale;
+    Settings.setValue("Nametags_togglescale", optionScale);
+    _updateActionSet()
+
+    if (visible) {
+      print("Adjusting nametags due to toggled scale with avatars option");
+      Object.keys(user_nametags).forEach(_adjustNametag);
+    }
+  }
+
+  function _handleAvatarClick(intersectionResult) { // RayToEntityIntersectionResult
+    const user_uuid = intersectionResult.avatarID;
+
+    // There seems to be a bug with findRayIntersection which affects only
+    // certain avatars. See https://github.com/overte-org/overte/issues/1923
+    // The workaround to this is to just compute the distance based on
+    // their position, rather than the intersection
+    const avatar = AvatarList.getAvatar(user_uuid);
+    const distance = Vec3.distance(avatar.position, Camera.position);
+
+    if (visible) {
+      // temporarily change size of nametag
+
+      // set nametagScale before adjusting nametag
+      user_nametags[user_uuid].nametagScale = distance/2;
+
+      // Restore original size after a delay
+      Script.setTimeout(() => {
+        if (!user_nametags[user_uuid]) return;
+        //  unset enlarged variable
+        user_nametags[user_uuid].showFullName = false;
+        user_nametags[user_uuid].nametagScale = 1;
+
+        _adjustNametag(user_uuid, false); // Nametag will be hidden during adjustment
+      }, 6000);
+
+    } else {
+      // Temporarily make nametag visible
+
+      // addUser
+      _addUser(user_uuid, undefined, undefined, distance/2);
+
+      // SetTimeout to removeUser, if !visible
+      Script.setTimeout(() => {
+        if (!visible) _removeUser(user_uuid);
+      }, 6000);
+
+    }
+    user_nametags[user_uuid].showFullName = true;
+
+    _adjustNametag(user_uuid, false);
+  }
+
+  // Enable or disable debug
+  function _toggleDebug() {
+    Settings.setValue("Nametags_debug", !debug);
+    // debug is stored as a const and only loaded from settings on script start,
+    // so to toggle it we need to restart the whole script
+    const runningScripts = ScriptDiscoveryService.getRunning();
+    for (const script of runningScripts) {
+      if (script.name === "nametags.js") {
+        print ("Disabling", script.name);
+        ScriptDiscoveryService.stopScript(script.url, true); // restart
+      }
+    }
+
   }
 
   // Enable or disable nametags
@@ -452,7 +1052,7 @@
     _updateActionSet()
 
     if (visible) {
-      myUUID = MyAvatar.sessionUUID;
+      const myUUID = MyAvatar.sessionUUID;
       if (!visibleSelf && user_nametags[myUUID]) _removeUser(myUUID);
       else if (visibleSelf){
         last_camera_mode = Camera.mode; // Update camera before _adjustNametags runs again
@@ -476,8 +1076,22 @@
   //
 
   function _scriptEnding() {
+    // Restore built-in nametags
+    Settings.setValue(SIMPLIFIEDNAMETAGS_DISABLE_FIELD, simplifiedNametagsMode);
+    if (simplifiedNametagsUrl) {
+      print ("Enabling SimplifiedNametag from ", simplifiedNametagsUrl);
+      ScriptDiscoveryService.loadScript(simplifiedNametagsUrl);
+    }
+
     tablet.removeButton(tabletButton);
-    Menu.removeMenuItem(MENU_VISIBLE_MENU, MENU_VISIBLE_NAME);
+    Menu.removeMenuItem(MENU_VIEW_SUBMENU, MENU_VISIBLE_NAME);
+    Menu.removeMenuItem(MENU_VIEW_SUBMENU, MENU_VISIBLESELF_NAME);
+    Menu.removeMenuItem(MENU_VIEW_SUBMENU, MENU_CLICKABLE_NAME);
+    Menu.removeMenuItem(MENU_VIEW_SUBMENU, MENU_SCALE_NAME);
+    Menu.removeMenu(MENU_VIEW_SUBMENU);
+    Menu.removeMenuItem(DEVELOPER_SUBMENU, MENU_DEBUG_NAME);
+    // Leaving the menu alone in case other apps are using it
+    // TODO: Check if developer submenu is empty, and remove it if so.
 
     for (let i = 0; Object.keys(user_nametags).length > i; i++) {
       Entities.deleteEntity(user_nametags[Object.keys(user_nametags)[i]].text);
