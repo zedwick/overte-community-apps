@@ -523,16 +523,22 @@ class Graph {
 
     /**
      * Emitted when a new node is added to this graph.
+     *
+     * @type Signal<(nodeId: number, graphId: number) => void>
      */
     nodeAddedEvent = new Signal("NodeAddedEvent");
 
     /**
      * Emitted when a node is removed from this graph.
+     *
+     * @type Signal<(nodeId: number, graphId: number) => void>
      */
     nodeRemovedEvent = new Signal("NodeRemovedEvent");
 
     /**
      * Emits when this graph is deleted.
+     *
+     * @type Signal<(graphId: number) => void>
      */
     graphDeletedEvent = new Signal("GraphDeletedEvent"); // TODO
 
@@ -544,12 +550,15 @@ class Graph {
 
     /**
      * Emits when the graph configuration changes.
-     * @type {Signal<GraphUpdatedEventCallback>}
+     *
+     * @type Signal<(graphId: number, changedNodes: Set<Node>) => void>
      */
     graphUpdatedEvent = new Signal("GraphUpdatedEvent"); // TODO
 
     /**
      * Emits when a node on this graph has updated or changed.
+     *
+     * @type Signal<(nodeId: number, graphId: number) => void>
      */
     nodeUpdatedEvent = new Signal("NodeUpdatedEvent"); // TODO
 
@@ -560,6 +569,8 @@ class Graph {
 
     /**
      * Emits when this graph has executed
+     *
+     * @type Signal<(graphId: number, results: object) => void>
      */
     graphExecutedEvent = new Signal("GraphExecutedEvent");
 

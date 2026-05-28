@@ -181,8 +181,10 @@ class TactileDocument extends TactileElement {
 
     /**
      * Emits when this TactileDocument is deleted.
+     *
+     * @type Signal<(documentId: number) => void>
      */
-    DocumentDeletedEvent = new Signal("DocumentDeletedEvent"); // TODO
+    documentDeletedEvent = new Signal("DocumentDeletedEvent"); // TODO
 }
 
 module.exports = TactileDocument;

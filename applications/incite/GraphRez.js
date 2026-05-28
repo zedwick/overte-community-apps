@@ -147,8 +147,10 @@ class GraphRez {
 
     /**
      * Emits when the graph is no longer being rezzed into the world.
+     *
+     * @type Signal<(nodeId: number, graphId: number) => void>
      */
-    GraphRezEnding = new incite.Signal("GraphRezEnding");
+    graphRezEnding = new incite.Signal("GraphRezEnding");
 
 }
 

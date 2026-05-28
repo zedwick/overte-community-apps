@@ -46,7 +46,7 @@ class GraphManager {
         this.#graphsById.set(id, graph);
         console.log("addGraph", graph.id);
         console.log("Graph", graph.id, "is", this.#graphsById.get(graph.id).id);
-        this.GraphAddedEvent.emit(id); // TODO: Only emit if successfully added
+        this.graphAddedEvent.emit(id); // TODO: Only emit if successfully added
         return id;
     }
 
@@ -81,11 +81,15 @@ class GraphManager {
 
     /**
      * Emits when a Graph is loaded
+     *
+     * @type Signal<(graphId: number) => void>
      */
     graphAddedEvent = new Signal("GraphAddedEvent");
 
     /**
      * Emits when a Graph is removed
+     *
+     * @type Signal<(graphId: number) => void>
      */
     graphDeletedEvent = new Signal("GraphDeletedEvent");
 }

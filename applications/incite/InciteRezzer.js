@@ -83,8 +83,19 @@ class InciteRezzer {
 
     // signals
 
-    graphRezAdded = new incite.Signal("graphRezAdded"); // graphRezId, graphId
-    graphRezRemoved = new incite.Signal("graphRezRemoved"); // graphRezId, graphId
+    /**
+     * When a new GraphRez has been added.
+     *
+     * @type Signal<(graphRezId: number, graphId: number) => void>
+     */
+    graphRezAdded = new incite.Signal("GraphRezAdded"); // graphRezId, graphId
+
+    /**
+     * When a GraphRez has been removed.
+     *
+     * @type Signal<(graphRezId: number, graphId: number) => void>
+     */
+    graphRezRemoved = new incite.Signal("GraphRezRemoved"); // graphRezId, graphId
 }
 
 module.exports = new InciteRezzer();
