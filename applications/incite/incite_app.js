@@ -10,12 +10,12 @@ globalThis['inspectCustom'] = Symbol.for('nodejs.util.inspect.custom'); // For n
 const isOverte = platform === 'overte';
 
 const ContextMenu = isOverte ? require("contextMenu") : undefined;
+const InciteRezzer = isOverte ? require("./InciteRezzer.js") : undefined;
 
 switch (platform) {
     case 'overte':
         print("Setting up for Overte");
         Script.clearCache(); // TODO: Don't clear cache in production'
-        const InciteRenderer = require("./InciteRenderer.js");
         break;
     case 'node':
         console.log("Setting up for Node.js ")
@@ -46,8 +46,6 @@ function loadGraph(graphURL) {
 
                 incite.InciteStore.graphManager.addGraph(graph);
 
-                graph.populateConnections();
-
                 graph.execute();
 
             } else {
@@ -65,7 +63,7 @@ function loadGraph(graphURL) {
 
 const baseUrl = "http://localhost:8079"
 
-loadGraph(baseUrl + '/test_graph_math.json');
+//loadGraph(baseUrl + '/test_graph_math.json');
 
 // Woo proper app stuff!
 
@@ -122,7 +120,12 @@ function registerContextMenu() {
 function createNewGraph() {
 
     if (incite.InciteStore.graphManager.graphs.length == 0) {
-        incite.InciteStore.graphManager.addGraph(new incite.GraphBuilder().build()); // TODO: Support more than one graph
+        const graph = new incite.GraphBuilder().build();
+        incite.InciteStore.graphManager.addGraph(graph);
+        // Render graph into the world
+        InciteRezzer.rezGraph(graph, Vec3.sum(MyAvatar.position,
+                                        Vec3.multiplyQbyV(MyAvatar.orientation,
+                                                          { x: 0, y: 0, z: -2 }))); // TODO rotation
         console.log("Created graph");
     } else {
         console.log("Could not create graph; a graph already exists");
@@ -131,6 +134,7 @@ function createNewGraph() {
 
 function deleteGraph() {
     if (incite.InciteStore.graphManager.graphs.length > 0) {
+        incite.InciteStore.graphManager.graphs.shift();
         incite.InciteStore.graphManager.deleteGraph(0); // TODO: Support more than one graph
         console.log("Deleted graph");
     } else {

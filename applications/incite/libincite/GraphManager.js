@@ -41,7 +41,7 @@ class GraphManager {
      */
     addGraph(graph) {
         const id = this.#availableIds.length > 0 ? this.#availableIds.pop() : this.#nextId++;
-        graph.id = id;
+        graph.id = id; // TODO: Make graph IDs unique
         this.#graphs.add(graph);
         this.#graphsById.set(id, graph);
         console.log("addGraph", graph.id);

@@ -104,6 +104,13 @@ class Graph {
     #valid
 
     /**
+     * The order this graph will execute in
+     *
+     * @private
+     */
+    #executionOrder
+
+    /**
      * Which output types can be connected to which input types
      */
     static get TYPE_COMPATIBLES() {
@@ -135,6 +142,10 @@ class Graph {
 
         this.#valid = this.validateGraph(); // We validate, but we do not judge
         console.log("Graph is valid?", this.#valid);
+
+
+        this.populateConnections();
+        this.#executionOrder = this.calculateExecutionOrder();
     }
 
     /**
@@ -168,6 +179,14 @@ class Graph {
     }
 
     /**
+     * The order this graph will execute in
+     * @returns {array<number>} - nodeIds in order of execution
+     */
+    get executionOrder() {
+        return [ ... this.#executionOrder ];
+    }
+
+    /**
      * Add a node to this graph
      * @property {Node}
      */
@@ -178,6 +197,7 @@ class Graph {
         this.#nodes.add(node);
         this.#nodesById.set(id, node);
         this.NodeAddedEvent.emit(this.id, id); // TODO: Only emit if successfully added
+        this.updateData();
         this.GraphUpdatedEvent.emit(this.id, new Set([id]));
     }
 
@@ -198,7 +218,22 @@ class Graph {
         this.#nodesById.delete(nodeId);
         this.#availableIds.add(nodeId);
         this.NodeDeletedEvent.emit(this.id, nodeId); // TODO: Only emit if successfully removed
+        this.updateData();
         this.GraphUpdatedEvent.emit(this.id, new Set([id]));
+    }
+
+    /**
+     * Update this graph's data; typically after structural changes to this graph.
+     */
+    updateData() {
+        // validate graph
+        this.#valid = this.validateGraph();
+
+        // update connection data
+        this.populateConnections();
+
+        // update execution order
+        this.#executionOrder = this.calculateExecutionOrder();
     }
 
     /**
@@ -309,7 +344,7 @@ class Graph {
     execute(force = false) {
         // Calculate the number of dependencies which must be resolved before each node can execute
         if(!force && !this.#valid) return [];
-        const queue = this.calculateExecutionOrder();
+        const queue = this.executionOrder;
         let results = [];
 
         console.log("Execution order:", queue);

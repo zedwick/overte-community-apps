@@ -24,10 +24,16 @@ const GraphBuilder = require("./GraphBuilder.js");
  */
 const InciteStore = require("./InciteStore.js");
 
+/**
+ * Signal
+ */
+const Signal = require("./Signal.js");
+
 
 module.exports = {
     Nodes,
     Graph,
     GraphBuilder,
-    InciteStore
+    InciteStore,
+    Signal,
 };
