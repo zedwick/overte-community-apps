@@ -77,7 +77,7 @@ class Node {
     // Override
     // Node's logic
     execute() {
-        throw new Error("Node type "+type+" must implement its own execute function");
+        throw new Error(`Node type ${type} must implement its own execute function`);
     }
 
     run() {

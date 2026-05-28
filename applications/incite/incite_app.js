@@ -4,7 +4,7 @@
 //  Copyright 2026 Overte e.V.
 //
 
-const platform = (typeof process != 'undefined' && typeof process.versions.node !== 'undefined') ? 'node' : 'overte';
+const platform = process?.versions?.node ? 'node' : 'overte';
 globalThis['inspectCustom'] = Symbol.for('nodejs.util.inspect.custom'); // For node
 
 const isOverte = platform === 'overte';

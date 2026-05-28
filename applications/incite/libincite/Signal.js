@@ -47,17 +47,8 @@ class Signal {
      * @param { * } args
      */
     emit( ... args) {
-        // console.log("Signal", this.#name, "emit:", ... args);
-        const queue = [ ... this.#callbacks ];
-
-
-        // console.log("Signal", this.#name, "emit queue:", queue);
-
-        for (let i = 0; i < queue.length; i++) {
-            // console.log("Signal", this.#name, "emit #", i, ... args);
-            const callback = queue.shift();
-
-            callback( ... args);
+        for (const callback of this.#callbacks) {
+            callback(...args);
         }
     }
 }
