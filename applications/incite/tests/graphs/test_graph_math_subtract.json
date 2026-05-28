@@ -30,7 +30,7 @@
                 "port": 0
             },
             "out": {
-                "node": 6,
+                "node": 1,
                 "port": 0
             }
         },
@@ -40,13 +40,13 @@
                 "port": 0
             },
             "out": {
-                "node": 6,
+                "node": 1,
                 "port": 1
             }
         },
         {
             "in": {
-                "node": 6,
+                "node": 1,
                 "port": 0
             },
             "out": {
@@ -57,7 +57,7 @@
     ],
     "assertions": [
         {
-            "nodeId": 6,
+            "nodeId": 1,
             "portId": 0,
             "value": -1
         }
