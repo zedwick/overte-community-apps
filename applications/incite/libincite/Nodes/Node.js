@@ -11,6 +11,14 @@
  * @property {object} connectedPort - The port of another node this port is connected to, if connected to a port.
  */
 
+/**
+ * The base executable Node which all other nodes should extend
+ *
+ * @property {string} type
+ * @property {number} id
+ * @property {object} graph
+ * @property {object} data
+ */
 class Node {
     #id
     #graph
@@ -74,12 +82,19 @@ class Node {
         };
     }
 
-    // Override
-    // Node's logic
+    /**
+     * Node's logic
+     * The code which runs when node would execute within the graph
+     *
+     * @abstract
+     */
     execute() {
         throw new Error(`Node type ${type} must implement its own execute function`);
     }
 
+    /**
+     * Runs this node's executable code, whilst handling errors
+     */
     run() {
         if (this.executed) return;
 
