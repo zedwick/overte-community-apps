@@ -14,10 +14,11 @@
 /**
  * The base executable Node which all other nodes should extend
  *
- * @property {string} type
- * @property {number} id
- * @property {object} graph
  * @property {object} data
+ * @property {object} graph - the graph this node belongs to
+ * @property {number} id - The id of this node instance
+ * @property {object} #node
+ * @property {string} type - They type of this node
  */
 class Node {
     #id

@@ -71,9 +71,9 @@ class GraphManager {
 
         console.log("GraphManager 2 Deleted graph");
         for (const node of graph.nodes) {
-            graph.NodeRemovedEvent.emit(node.id);
+            graph.nodeRemovedEvent.emit(node.id);
         }
-        this.GraphDeletedEvent.emit(graphId);
+        this.graphDeletedEvent.emit(graphId);
         this.#graphs.delete(graph);
         this.#graphsById.delete(graphId);
         this.#availableIds.push(graphId);
@@ -82,12 +82,12 @@ class GraphManager {
     /**
      * Emits when a Graph is loaded
      */
-    GraphAddedEvent = new Signal("GraphAddedEvent");
+    graphAddedEvent = new Signal("GraphAddedEvent");
 
     /**
      * Emits when a Graph is removed
      */
-    GraphDeletedEvent = new Signal("GraphDeletedEvent");
+    graphDeletedEvent = new Signal("GraphDeletedEvent");
 }
 
 module.exports = GraphManager;

@@ -29,9 +29,9 @@ class GraphRez {
     }
 
     subscribe() {
-        this.graph.NodeAddedEvent.connect(this.onNodeAdded.bind(this));
-        this.graph.NodeRemovedEvent.connect(this.onNodeRemoved.bind(this));
-        incite.InciteStore.graphManager.GraphDeletedEvent.connect(this.onGraphDeleted.bind(this));
+        this.graph.nodeAddedEvent.connect(this.onNodeAdded.bind(this));
+        this.graph.nodeRemovedEvent.connect(this.onNodeRemoved.bind(this));
+        incite.InciteStore.graphManager.graphDeletedEvent.connect(this.onGraphDeleted.bind(this));
     }
 
     onNodeAdded(graphId, nodeId) {

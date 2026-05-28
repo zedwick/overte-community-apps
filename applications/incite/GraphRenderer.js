@@ -82,10 +82,10 @@ class GraphRenderer {
         const graph = this.graph;
 
         graph.GraphUpdatedEvent.connect(this.update.bind(this));
-        incite.InciteStore.graphManager.GraphDeletedEvent.connect(this.end.bind(this));
+        incite.InciteStore.graphManager.graphDeletedEvent.connect(this.end.bind(this));
 
         // Nodes
-        graph.NodeRemovedEvent.connect(this.removeNode.bind(this));
+        graph.nodeRemovedEvent.connect(this.removeNode.bind(this));
     }
 
     /**
@@ -209,8 +209,8 @@ class GraphRenderer {
         const graph = this.graph;
 
         //graph.GraphUpdatedEvent.disconnect(this.update.bind(this));
-        incite.InciteStore.graphManager.GraphDeletedEvent.disconnect(this.end.bind(this));
-        graph.NodeRemovedEvent.connect(this.removeNode.bind(this));
+        incite.InciteStore.graphManager.graphDeletedEvent.disconnect(this.end.bind(this));
+        graph.nodeRemovedEvent.connect(this.removeNode.bind(this));
 
         this.deleteGraphEntity();
     }

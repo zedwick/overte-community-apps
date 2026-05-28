@@ -47,66 +47,48 @@ class Graph {
 
     /**
      * The url where this graph can be loaded from
-     *
-     * @private
      */
     #url
 
     /**
      * An iterable array of nodes within this graph
-     *
-     * @private
      */
     #nodes
 
     /**
      * A map of nodes within this graph, allowing lookup by node ID.
-     *
-     * @private
      */
     #nodesById
 
     /**
      * An array of connections between nodes
-     *
-     * @private
      * @type {GraphJson-Connection}
      */
     #connections
 
     /**
      * An array of Assertions made about the values of specific nodes after graph execution
-     *
-     * @private
      */
     #assertions
 
     /**
      * The next ID to use when adding a node to this graph; used only when #availableIds is empty.
-     *
-     * @private
      */
     #nextId
 
     /**
      * A list of previously used node IDs which are now available to be reused for new nodes
-     *
-     * @private
      */
     #availableIds
 
     /**
      * Has this graph pass the vibe check?
      * If false something about this graph has not passed validation, and it will not execute without intervention.
-     *
-     * @private
      */
     #valid
 
     /**
      * The order this graph will execute in
-     *
-     * @private
      */
     #executionOrder
 
@@ -134,9 +116,9 @@ class Graph {
             if (node.id === undefined) node.id = this.#availableIds.length > 0 ? this.#availableIds.pop() : this.#nextId++;
             if (node.id <= this.#nextId) this.#nextId = node.id+1;
             this.#nodesById.set(node.id, node);
-            this.NodeAddedEvent.emit(this.id, node.id);
+            this.nodeAddedEvent.emit(this.id, node.id);
         }
-        this.GraphUpdatedEvent.emit(this.id, new Set(this.#nodes));
+        this.graphUpdatedEvent.emit(this.id, new Set(this.#nodes));
         this.#connections = data.connections ?? [];
         this.#assertions = data.assertions ?? [];
 
@@ -196,9 +178,9 @@ class Graph {
         node.id = id;
         this.#nodes.add(node);
         this.#nodesById.set(id, node);
-        this.NodeAddedEvent.emit(this.id, id); // TODO: Only emit if successfully added
+        this.nodeAddedEvent.emit(this.id, id); // TODO: Only emit if successfully added
         this.updateData();
-        this.GraphUpdatedEvent.emit(this.id, new Set([id]));
+        this.graphUpdatedEvent.emit(this.id, new Set([id]));
     }
 
     /**
@@ -219,7 +201,7 @@ class Graph {
         this.#availableIds.add(nodeId);
         this.NodeDeletedEvent.emit(this.id, nodeId); // TODO: Only emit if successfully removed
         this.updateData();
-        this.GraphUpdatedEvent.emit(this.id, new Set([id]));
+        this.graphUpdatedEvent.emit(this.id, new Set([id]));
     }
 
     /**
@@ -364,7 +346,7 @@ class Graph {
 
         this.verifyAssertions(results);
 
-        this.GraphExecutedEvent.emit(this.id, results);
+        this.graphExecutedEvent.emit(this.id, results);
 
         return results;
     }
@@ -542,44 +524,44 @@ class Graph {
     /**
      * Emitted when a new node is added to this graph.
      */
-    NodeAddedEvent = new Signal("NodeAddedEvent");
+    nodeAddedEvent = new Signal("NodeAddedEvent");
 
     /**
      * Emitted when a node is removed from this graph.
      */
-    NodeRemovedEvent = new Signal("NodeRemovedEvent");
+    nodeRemovedEvent = new Signal("NodeRemovedEvent");
 
     /**
      * Emits when this graph is deleted.
      */
-    GraphDeletedEvent = new Signal("GraphDeletedEvent"); // TODO
+    graphDeletedEvent = new Signal("GraphDeletedEvent"); // TODO
 
     /**
      * @callback GraphUpdatedEventCallback
      * @param {number} graphId
-     * @param {Set} changedNodes
+     * @param {Set<Node>} changedNodes
      */
 
     /**
      * Emits when the graph configuration changes.
      * @type {Signal<GraphUpdatedEventCallback>}
      */
-    GraphUpdatedEvent = new Signal("GraphUpdatedEvent"); // TODO
+    graphUpdatedEvent = new Signal("GraphUpdatedEvent"); // TODO
 
     /**
      * Emits when a node on this graph has updated or changed.
      */
-    NodeUpdatedEvent = new Signal("NodeUpdatedEvent"); // TODO
+    nodeUpdatedEvent = new Signal("NodeUpdatedEvent"); // TODO
 
     /**
      * Emits when a connection on this graph has updated or changed.
      */
-    ConectionUpdatedEvent = new Signal("ConectionUpdatedEvent"); // TODO
+    conectionUpdatedEvent = new Signal("ConectionUpdatedEvent"); // TODO
 
     /**
      * Emits when this graph has executed
      */
-    GraphExecutedEvent = new Signal("GraphExecutedEvent");
+    graphExecutedEvent = new Signal("GraphExecutedEvent");
 
 }
 

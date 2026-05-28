@@ -33,7 +33,7 @@ class InciteRenderer {
      */
     subscribe() {
         Script.scriptEnding.connect(this.end.bind(this));
-        incite.InciteStore.graphManager.GraphAddedEvent.connect(this.graphCreated.bind(this))
+        incite.InciteStore.graphManager.graphAddedEvent.connect(this.graphCreated.bind(this))
     }
 
     /**
@@ -67,7 +67,7 @@ class InciteRenderer {
      * @private
      */
     end() {
-        incite.InciteStore.graphManager.GraphAddedEvent.disconnect(this.graphCreated.bind(this));
+        incite.InciteStore.graphManager.graphAddedEvent.disconnect(this.graphCreated.bind(this));
         Script.scriptEnding.disconnect(this.end.bind(this));
     }
 }
