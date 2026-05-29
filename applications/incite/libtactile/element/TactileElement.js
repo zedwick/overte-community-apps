@@ -41,7 +41,11 @@
  * @property {object} parent - The TactileElement which this element is a child of
  * @property {boolean} isContainer
  * @property {boolean} valid - If this element has had its layout computed; when false it must be updated, once valid it will be rerendered
+ * @property {boolean} isPlaced - If this element has been assigned coordinates
  * @property {GeometryCache} cache - Cache of computed geometry for this element
+ * @property {array<elements>} visibleElements - The elements which are marked as visible
+ * @property {array<elements>} validElements - The elements which are marked as valid
+ * @property {array<elements>} placedElements - The elements which have already been assigned coordinates
  */
 class TactileElement {
 
@@ -130,6 +134,25 @@ class TactileElement {
         // notify up the tree
         this._propogateValidation(this, bool);
     }
+
+    get isPlaced() {
+        return typeof this.cache?.x !== 'undefined'
+    }
+
+    // No hidden elements here!
+    get visibleElements() {
+        return this.elements.filter(element => element.visible);
+    }
+
+    // elements with valid geometry
+    get validElements() {
+        return this.elements.filter(element => element.valid);
+    }
+
+    // elements with valid geometry
+    get placedElements() {
+        return this.elements.filter(element => element.isPlaced);
+    };
 
     /**
      * Propogate element validation notification up through the tree
@@ -293,6 +316,9 @@ class TactileElement {
         // Constrain size
         totalWidth = Math.max(this.minWidth, Math.min(totalWidth, this.maxWidth));
         totalHeight = Math.max(this.minHeight, Math.min(totalHeight, this.maxHeight));
+
+        this.cache.measuredWidth = totalWidth;
+        this.cache.measuredHeight = totalHeight;
 
 
         return {

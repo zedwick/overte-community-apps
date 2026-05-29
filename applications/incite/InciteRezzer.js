@@ -55,7 +55,7 @@ class InciteRezzer {
         this.#graphRezMap.set(graphRez.id, graphRez);
 
         // Subscribe to GraphRez signals; derezzed, etc?
-        graphRez.GraphRezEnding.connect(this.onGraphRezEnding.bind(this));
+        graphRez.graphRezEnding.connect(this.onGraphRezEnding.bind(this));
 
         // Emit new GraphRez signal
         this.graphRezAdded.emit(graphRez.id, graphRez.graphId);

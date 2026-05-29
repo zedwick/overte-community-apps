@@ -103,7 +103,7 @@ class GraphRez {
             margins: { top: 0.1, right: 0.1, bottom: 0.1, left: 0.1 },
         };
 
-        const layout = new tactile.element.GridLayout(options);
+        const layout = new tactile.element.FloatingLayout(options);
         const elements = [layout];
 
         // for each node in graph:
@@ -141,6 +141,13 @@ class GraphRez {
      */
     rez(position = this.position) {
 
+    }
+
+    /**
+     * Remove all entities from the world
+     */
+    cleanup() {
+        this.document.cleanup();
     }
 
     // Signals

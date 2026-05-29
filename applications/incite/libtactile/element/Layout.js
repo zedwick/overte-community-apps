@@ -11,7 +11,7 @@ const TactileElement = require("./TactileElement.js");
  *
  * @param {object} options
  *
- * @property {Spacing} spacing - The spacing between child elements in this layout
+ * @property {number} spacing - The spacing between child elements in this layout
  *
  * @extends TactileElement
  */

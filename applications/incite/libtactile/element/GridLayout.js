@@ -15,7 +15,6 @@ const Layout = require("./Layout.js");
  * @property {number} rows
  * @property {number} rowHeight
  * @property {string} flowDirection
- * @property {array<elements>} visibleElements - The elements which are marked as visible
  * @property {number} secondaryDimension - Number of rows or columns, whichever flowDirection
  */
 class GridLayout extends Layout{
@@ -26,11 +25,6 @@ class GridLayout extends Layout{
         this.rowHeight = options.rowHeight ?? 1;
         this.flowDirection = options.flowDirection ?? 'row'; // 'row' or 'column'
         console.log(`flowDirection: this=${this.flowDirection}, options=${options.flowDirection}`);
-    }
-
-    // No hidden elements here!
-    get visibleElements() {
-        return this.elements.filter(element => element.visible);
     }
 
     // secondary == flowDirection, primary == predefined limit
