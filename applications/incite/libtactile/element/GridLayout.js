@@ -108,12 +108,15 @@ class GridLayout extends Layout{
         console.log(" maxRowHeights", this.cache.maxRowHeights);
         //console.table(this.cache.maxRowHeights);
 
-        this.cache.measuredWidth = totalWidth;
-        this.cache.measuredHeight = totalHeight;
+        const measuredWidth = totalWidth !== Infinity ? totalWidth : Number.MAX_SAFE_INTEGER;
+        const measuredHeight = totalHeight !== Infinity ? totalHeight : Number.MAX_SAFE_INTEGER;
+
+        this.cache.measuredWidth = measuredWidth;
+        this.cache.measuredHeight = measuredHeight;
 
         return {
-            width: totalWidth,
-            height: totalHeight,
+            width: measuredWidth,
+            height: measuredHeight,
         }
     }
 

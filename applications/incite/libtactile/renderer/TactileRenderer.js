@@ -46,6 +46,7 @@ class TactileRenderer extends BaseRenderer {
 
         Script.scriptEnding.connect(() => {
             this.cleanup();
+            console.log("TactileRenderer ended.");
         });
 
         this.rendererCount = 0;
@@ -167,11 +168,6 @@ class TactileRenderer extends BaseRenderer {
             TextElement: {
                 type: "Text",
                 text: "Text",
-                dimensions: {
-                    x: 0.65,
-                    y: 0.3,
-                    z: 0.01
-                },
                 textColor: { red: 255, green: 255, blue: 255 },
                 backgroundColor: { red: 0, green: 0, blue: 0 },
                 lineHeight: 0.06,
@@ -193,6 +189,7 @@ class TactileRenderer extends BaseRenderer {
                             rotation: this.rootEntityRotation,
                             parentID: element.id == 0 ? "{00000000-0000-0000-0000-000000000000}" : this.rootEntityId,
                             dimensions: [element.cache.width, element.cache.height, 0.2],
+                            unlit: element.unlit,
         }
 
         console.log("entityProperties - switch time!");
@@ -205,10 +202,17 @@ class TactileRenderer extends BaseRenderer {
                 console.log("entityProperties - TextElement!");
                 properties = { ... properties, ... DEFAULT_ENTITY_PROPERTIES.TextElement }
                 properties.text = element.text;
+                properties.backgroundColor = element.color;
+                properties.backgroundAlpha = element.alpha;
+                properties.textColor = element.textColor;
+                properties.textAlpha = element.textAlpha;
+                properties.lineHeight = element.lineHeight;
                 break;
             default:
                 console.log("entityProperties - default!")
                 properties.type = "Box";
+                properties.color = element.color;
+                properties.alpha = element.alpha;
                 break;
         }
 

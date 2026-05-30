@@ -167,8 +167,10 @@ class FloatingLayout extends Layout {
         // Size of this layout should be a ratio of 4:1
         // unless connections dictate an alternative distribution
 
-        const measuredWidth = Math.sqrt(estimatedArea + this.margins.left + this.margins.right);
-        const measuredHeight = Math.sqrt(estimatedArea) + this. margins.top + this.margins.bottom;;
+        let measuredWidth = Math.sqrt(estimatedArea + this.margins.left + this.margins.right);
+        let measuredHeight = Math.sqrt(estimatedArea) + this. margins.top + this.margins.bottom;
+        measuredWidth = measuredWidth !== Infinity ? measuredWidth : Number.MAX_SAFE_INTEGER;
+        measuredHeight = measuredHeight !== Infinity ? measuredHeight : Number.MAX_SAFE_INTEGER;
 
         console.log("... Measured!");
 

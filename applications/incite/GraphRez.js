@@ -36,9 +36,66 @@ class GraphRez {
 
     onNodeAdded(graphId, nodeId) {
         const node = this.graph.getNode(nodeId);
-        const element = new tactile.element.TactileElement({ minWidth: 0.5 });
-        element.addElement(new tactile.element.TextElement({ text: node.type }));
-        this.document.root.addElement(element); // TODO Build an element for the type of node
+        const nodeElement = new tactile.element.ColumnLayout({
+            preferredWidth: 1, preferredHeight: 1,
+            minWidth: 0.5, mindHeight: 0.5,
+            maxWidth: 1, maxHeight: 1,
+            color: { red: 100, green: 100, blue: 100},
+            margins: { top: 0.01, right: 0.01, bottom: 0.01, left: 0.01 },
+            spacing: 0.01,
+        });
+        nodeElement.addElement(new tactile.element.TextElement({
+            text: node.type,
+            color: { red: 255, green: 144, blue: 0 },
+            textColor: { red: 0, green: 0, blue: 0 },
+            lineHeight: 0.12,
+            preferredHeight: 0.2,
+            unlit: true,
+        }));
+
+        // Ports row
+        const portsContainer = new tactile.element.RowLayout({
+            minWidth: 0.5,
+            preferredWidth: Infinity, preferredHeight: 0.1,
+            alpha: 0,
+
+        });
+
+        // input ports
+        const inputPorts = new tactile.element.ColumnLayout({
+            preferredWidth: 0.2,
+            maxWidth: 0.4,
+            color: { red: 93, green: 93, blue: 93 },
+            alpha: 0.5,
+
+        });
+        inputPorts.addElement(new tactile.element.TactileElement({
+            preferredWidth: 0.1, preferredHeight: 0.1,
+            maxWidth: 0.1, maxHeight: 0.1,
+            color: { red: 0, green: 240, blue: 44 },
+            alpha: 1,
+        }));
+        portsContainer.addElement(inputPorts);
+
+        // output ports
+        const outputPorts = new tactile.element.ColumnLayout({
+            preferredWidth: 0.1, preferredHeight: 0.1,
+            maxWidth: 0.4,
+            color: { red: 93, green: 93, blue: 93 },
+            alpha: 0.5,
+        });
+        outputPorts.addElement(new tactile.element.TactileElement({
+            preferredWidth: 0.1, preferredHeight: 0.1,
+            maxWidth: 0.1, maxHeight: 0.1,
+            color: { red: 0, green: 44, blue: 240 },
+            alpha: 1,
+        }));
+        portsContainer.addElement(outputPorts);
+
+        nodeElement.addElement(portsContainer);
+
+
+        this.document.root.addElement(nodeElement); // TODO Build an element for the type of node
         // Store elementId by the nodeId;
         this.#nodeElementMap.set(nodeId, element.id);
     }

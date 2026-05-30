@@ -16,6 +16,10 @@ class TextElement extends TactileElement {
     constructor(options = {}) {
         super(options);
         this.text = options.text ?? "text";
+        this.color = options.color ?? { red: 0, green: 0, blue: 0 };
+        this.textColor = options.textColor ?? { red: 255, green: 255, blue: 255 };
+        this.textAlpha = options.textAlpha ?? 1;
+        this.lineHeight = options.lineHeight ?? 0.06;
 
     }
 

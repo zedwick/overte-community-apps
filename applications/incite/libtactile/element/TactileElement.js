@@ -85,6 +85,10 @@ class TactileElement {
         this.visible = options.visible ?? true;
         this.offsetZ = options.offsetZ ?? 0.1;
 
+        this.color = options.color ?? { red: 255, green: 255, blue: 255 }
+        this.alpha = options.alpha ?? 1;
+        this.unlit = options.unlit ?? false;
+
         this.resetCache();
         this.parent = null;
 
@@ -324,14 +328,16 @@ class TactileElement {
         // Constrain size
         totalWidth = Math.max(this.minWidth, Math.min(totalWidth, this.maxWidth));
         totalHeight = Math.max(this.minHeight, Math.min(totalHeight, this.maxHeight));
+        const measuredWidth = totalWidth !== Infinity ? totalWidth : Number.MAX_SAFE_INTEGER;
+        const measuredHeight = totalHeight !== Infinity ? totalHeight : Number.MAX_SAFE_INTEGER;
 
-        this.cache.measuredWidth = totalWidth;
-        this.cache.measuredHeight = totalHeight;
+        this.cache.measuredWidth = measuredWidth;
+        this.cache.measuredHeight = measuredHeight;
 
 
         return {
-            width: totalWidth,
-            height: totalHeight,
+            width: measuredWidth,
+            height: measuredHeight,
         }
     }
 
