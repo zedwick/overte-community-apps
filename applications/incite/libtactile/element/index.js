@@ -6,6 +6,7 @@
 
 const ColumnLayout = require('./ColumnLayout.js');
 const FloatingLayout = require('./FloatingLayout.js');
+const GridElement = require('./GridElement.js');
 const GridLayout = require('./GridLayout.js');
 const Layout = require('./Layout.js');
 const RowLayout = require('./RowLayout.js');
@@ -16,6 +17,7 @@ const TextElement = require('./TextElement.js');
 module.exports = {
     ColumnLayout,
     FloatingLayout,
+    GridElement,
     GridLayout,
     Layout,
     RowLayout,

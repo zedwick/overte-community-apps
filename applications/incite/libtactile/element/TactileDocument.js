@@ -22,6 +22,8 @@ class TactileDocument extends TactileElement {
 
     constructor(options) {
         super(options);
+        this.alpha = options.alpha ?? 0;
+        this.zDepth = options.zDepth ?? 0;
         console.log("TactileDocument constructor, after super");
 
         this.expandToFit = options.expandToFit ?? false; // When true will expand the container document size to fit the contents. When false will constrain the contents to fit the container document size.
@@ -147,29 +149,57 @@ class TactileDocument extends TactileElement {
         // iterate through tree
         // when element is not valid; do geometry calc
 
-        // Do element geometry calculations
-        if (this.elements.length > 0) { // TODO: Support more than one child element
+        this.cache.largestWidth = 0;
+        this.cache.largestHeight = 0;
+        for (const element of this.elements) {
             console.log("We got elements!");
-            if (this.root.valid) return; // Skip if nothing to do.
+            if (!this.expandToFit && element.valid) continue; // Skip if nothing to do.
             console.log("We invalid!");
-            const rootSize = this.root.measure();
+            const size = element.measure();
+            const width = size.width;
+            const height = size.height;
 
-            const rootWidth = this.expandToFit ? rootSize.width : this.preferredWidth;
-            const rootHeight = this.expandToFit ? rootSize.height : this.preferredHeight;
+            if (   ((width < Number.MAX_SAFE_INTEGER) && width > this.cache.largestWidth)
+                || (this.cache.largestWidthElement == element.id && width < this.cache.largestWidth)
+            ) {
+                console.log(`New largest width from element ${element.id}: ${width}, (was ${this.cache.largestWidth})`);
+                this.cache.largestWidth = width;
+                this.cache.largestElement = element.id;
+            }
+            if (    ((height < Number.MAX_SAFE_INTEGER) && height > this.cache.largestHeight)
+                || (this.cache.largestHeightElement == element.id && height < this.cache.largestHeight)
+            ) {
+                console.log(`New largest height from element ${element.id}: ${height}, (was ${this.cache.largestHeight})`);
+                this.cache.largestHeight = height;
+                this.cache.largestElement = element.id;
+            }
 
-            const totalWidth = rootWidth + this.margins.left + this.margins.right;
-            const totalHeight = rootHeight + this.margins.top + this.margins.bottom;
+        }
 
-            this.cache.x = 0;
-            this.cache.y = 0;
-            this.cache.absoluteX = 0;
-            this.cache.absoluteY = 0;
-            this.cache.width = totalWidth;
-            this.cache.height = totalHeight;
+        // Here we want the document to either constrain, or if expandToFit then
+        // it should expand to fit the geometry whereever it may be destined to be.
+        // I don't tihnk we support arbritary positioning, so it should just be as big
+        // or larger than the largest child element.
 
-            this.valid = true;
+        const rootWidth = this.expandToFit ? this.cache.largestWidth : this.preferredWidth;
+        const rootHeight = this.expandToFit ? this.cache.largestHeight : this.preferredHeight;
 
-            this.root.layout(rootWidth, rootHeight, 0, 0);
+        const totalWidth = rootWidth + this.margins.left + this.margins.right;
+        const totalHeight = rootHeight + this.margins.top + this.margins.bottom;
+
+        this.cache.x = 0;
+        this.cache.y = 0;
+        this.cache.absoluteX = 0;
+        this.cache.absoluteY = 0;
+        this.cache.width = totalWidth;
+        this.cache.height = totalHeight;
+
+        this.valid = true;
+
+        for (const element of this.elements) {
+            if (!this.expandToFit && element.valid) continue; // Skip if nothing to do.
+
+            element.layout(rootWidth, rootHeight, 0, 0);
 
         }
     }

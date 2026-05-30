@@ -21,6 +21,8 @@ class Layout extends TactileElement {
         super(options)
         this.isContainer = true;
         this.spacing = options.spacing ?? 0;
+        this.alpha = options.alpha ?? 0;
+        this.zDepth = options.zDepth ?? 0;
     }
 
     get type() {

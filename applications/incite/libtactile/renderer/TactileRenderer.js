@@ -165,6 +165,12 @@ class TactileRenderer extends BaseRenderer {
                 density: 1000,
                 dynamic: false,
             },
+            GridElement: {
+                type: "Grid",
+                followCamera: false,
+                majorGridEvery: 1,
+                minorGridEvery: 0.2,
+            },
             TextElement: {
                 type: "Text",
                 text: "Text",
@@ -209,6 +215,11 @@ class TactileRenderer extends BaseRenderer {
                 properties.textColor = element.textColor;
                 properties.textAlpha = element.textAlpha;
                 properties.lineHeight = element.lineHeight;
+                break;
+            case 'GridElement':
+                console.log("entityProperties - GridElement!");
+                properties = { ... properties, ... DEFAULT_ENTITY_PROPERTIES.GridElement }
+
                 break;
             default:
                 console.log("entityProperties - default!")

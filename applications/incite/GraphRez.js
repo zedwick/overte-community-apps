@@ -43,6 +43,8 @@ class GraphRez {
             color: { red: 216, green: 216, blue: 216 },
             margins: { top: 0.01, right: 0.01, bottom: 0.01, left: 0.01 },
             spacing: 0.01,
+            alpha: 1,
+            zDepth: 0.1,
         });
         nodeElement.addElement(new tactile.element.TextElement({
             text: node.type,
@@ -102,7 +104,7 @@ class GraphRez {
 
         this.document.root.addElement(nodeElement); // TODO Build an element for the type of node
         // Store elementId by the nodeId;
-        this.#nodeElementMap.set(nodeId, element.id);
+        this.#nodeElementMap.set(nodeId, nodeElement.id);
     }
 
     onNodeRemoved(graphId, nodeId) {
@@ -168,7 +170,10 @@ class GraphRez {
         };
 
         const layout = new tactile.element.FloatingLayout(options);
-        const elements = [layout];
+        const grid = new tactile.element.GridElement({
+            preferredWidth: Infinity, preferredHeight: Infinity,
+        });
+        const elements = [layout,grid];
 
         // for each node in graph:
         for(const node of this.graph.nodes) {
