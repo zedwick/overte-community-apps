@@ -123,7 +123,7 @@ function createNewGraph() {
         const graph = new incite.GraphBuilder().build();
         incite.InciteStore.graphManager.addGraph(graph);
         // Render graph into the world
-        InciteRezzer.rezGraph(graph, Vec3.sum(MyAvatar.position,
+        InciteRezzer.rezGraph(graph, Vec3.sum(MyAvatar.getHeadPosition(),
                                         Vec3.multiplyQbyV(MyAvatar.orientation,
                                                           { x: 0, y: 0, z: -2 }))); // TODO rotation
         console.log("Created graph");

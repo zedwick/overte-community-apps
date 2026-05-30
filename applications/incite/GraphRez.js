@@ -37,8 +37,8 @@ class GraphRez {
     onNodeAdded(graphId, nodeId) {
         const node = this.graph.getNode(nodeId);
         const nodeElement = new tactile.element.ColumnLayout({
-            preferredWidth: 1, preferredHeight: 1,
-            minWidth: 0.5, mindHeight: 0.5,
+            preferredWidth: 0.5, preferredHeight: 0.5,
+            minWidth: 0.5, minHeight: 0.5,
             maxWidth: 1, maxHeight: 1,
             color: { red: 216, green: 216, blue: 216 },
             margins: { top: 0.01, right: 0.01, bottom: 0.01, left: 0.01 },
@@ -51,14 +51,14 @@ class GraphRez {
             color: { red: 255, green: 144, blue: 0 },
             textColor: { red: 0, green: 0, blue: 0 },
             lineHeight: 0.12,
-            preferredHeight: 0.2,
+            preferredWidth: 0.3, preferredHeight: 0.2,
             unlit: true,
         }));
 
         // Ports row
         const portsContainer = new tactile.element.RowLayout({
             minWidth: 0.5,
-            preferredWidth: Infinity, preferredHeight: 0.1,
+            preferredWidth: 0.3, preferredHeight: 0.1,
             alpha: 0,
             zDepth: 0,
 
@@ -66,20 +66,25 @@ class GraphRez {
 
         // input ports
         const inputPorts = new tactile.element.ColumnLayout({
-            preferredWidth: 0.2,
+            preferredWidth: 0.2, preferredHeight: 0.1,
             maxWidth: 0.4,
             color: { red: 93, green: 93, blue: 93 },
-            alpha: 1,
+            alpha: 0.5,
             zDepth: 0.01,
+            margins: { top: 0.01, right: 0.01, bottom: 0.01, left: 0.01 },
+            spacing: 0.01,
 
         });
-        inputPorts.addElement(new tactile.element.TactileElement({
-            preferredWidth: 0.1, preferredHeight: 0.1,
-            maxWidth: 0.1, maxHeight: 0.1,
-            color: { red: 0, green: 240, blue: 44 },
-            alpha: 1,
-            zDepth: 0.010,
-        }));
+        for (const input of node.inputs) {
+            inputPorts.addElement(new tactile.element.TactileElement({
+                preferredWidth: 0.1, preferredHeight: 0.1,
+                maxWidth: 0.1, maxHeight: 0.1,
+                color: { red: 0, green: 240, blue: 44 },
+                alpha: 1,
+                zDepth: 0.02,
+                offsetZ: -0.01,
+            }));
+        }
         portsContainer.addElement(inputPorts);
 
         // output ports
@@ -89,14 +94,19 @@ class GraphRez {
             color: { red: 93, green: 93, blue: 93 },
             alpha: 0.5,
             zDepth: 0.01,
+            margins: { top: 0.01, right: 0.01, bottom: 0.01, left: 0.01 },
+            spacing: 0.1,
         });
-        outputPorts.addElement(new tactile.element.TactileElement({
-            preferredWidth: 0.1, preferredHeight: 0.1,
-            maxWidth: 0.1, maxHeight: 0.1,
-            color: { red: 0, green: 44, blue: 240 },
-            alpha: 1,
-            zDepth: 0.010,
-        }));
+        for (const output of node.outputs) {
+            outputPorts.addElement(new tactile.element.TactileElement({
+                preferredWidth: 0.1, preferredHeight: 0.1,
+                maxWidth: 0.1, maxHeight: 0.1,
+                color: { red: 0, green: 44, blue: 240 },
+                alpha: 1,
+                zDepth: 0.02,
+                offsetZ: -0.01,
+            }));
+        }
         portsContainer.addElement(outputPorts);
 
         nodeElement.addElement(portsContainer);
