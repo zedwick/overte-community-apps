@@ -26,6 +26,7 @@ class FloatingLayout extends Layout {
         console.log(`findAvailablePosition - placedElements: ${placedElements.length}`);
         const cache = this.cache;
         const spacing = this.spacing;
+        const margins = this.margins;
         const candidates = generateCandidates(width, height);
 
         let bestRating = 0;
@@ -33,6 +34,8 @@ class FloatingLayout extends Layout {
 
         for (const candidate of candidates) {
             const rating = rateMyCandidate(candidate); // 0.0 - 1.0; 1.0 is ideal
+
+            console.log(`Candidate ${candidate.x},${candidate.y} rating is ${rating} (Best: ${bestRating})`);
 
             if (rating > bestRating) {
                 bestRating = rating;
@@ -44,7 +47,8 @@ class FloatingLayout extends Layout {
         // We should have a best candidate, but if there were no good candidates
         // we should just throw it down *somewhere*
         if (!bestCandidate) {
-            bestCandidate = { x: 0, y: 0};
+            const offset = placedElements.length*0.1;
+            bestCandidate = { x: this.margins.left+offset, y: this.margins.top+offset};
             console.log("Could not find a good place to position the element.");
         }
 
@@ -88,7 +92,7 @@ class FloatingLayout extends Layout {
 
             console.log("... totalOverlap:", totalOverlap, "greatestOverlap: ", greatestOverlap);
 
-            const totalArea = cache.width * cache.height;
+            const totalArea = width * height;
             const areaRemaining = totalArea - greatestOverlap;
 
             return areaRemaining / totalArea;
@@ -99,7 +103,7 @@ class FloatingLayout extends Layout {
             const candidates = [];
 
             // Ideal first position
-            candidates.push({ x: 0, y: 0 });
+            candidates.push({ x: margins.left, y: margins.top });
 
             function withinBounds(x, y, w, h) {
                 return x >= 0
