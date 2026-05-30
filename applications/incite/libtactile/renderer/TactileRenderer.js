@@ -179,8 +179,8 @@ class TactileRenderer extends BaseRenderer {
             }
         }
 
-        const position = this.TwoToThreeD(element.cache.x,
-                                          element.cache.y,
+        const position = this.TwoToThreeD(element.cache.absoluteX,
+                                          element.cache.absoluteY,
                                           element.cache.width,
                                           element.cache.height,
                                           (element.offsetZ*element.depth),

@@ -358,7 +358,7 @@ class TactileElement {
 
         if (this.elements.length > 0) {
             for (const child of this.elements) {
-                child.layout(finalWidth, finalHeight, offsetX, offsetY); // We have no layout, so let the children do whatever within the confines of this element's size.
+                child.layout(finalWidth, finalHeight, 0, 0); // We have no layout, so let the children do whatever within the confines of this element's size.
             }
         }
 
