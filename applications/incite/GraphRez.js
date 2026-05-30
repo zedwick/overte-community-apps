@@ -40,7 +40,7 @@ class GraphRez {
             preferredWidth: 1, preferredHeight: 1,
             minWidth: 0.5, mindHeight: 0.5,
             maxWidth: 1, maxHeight: 1,
-            color: { red: 100, green: 100, blue: 100},
+            color: { red: 216, green: 216, blue: 216 },
             margins: { top: 0.01, right: 0.01, bottom: 0.01, left: 0.01 },
             spacing: 0.01,
         });
@@ -58,6 +58,7 @@ class GraphRez {
             minWidth: 0.5,
             preferredWidth: Infinity, preferredHeight: 0.1,
             alpha: 0,
+            zDepth: 0,
 
         });
 
@@ -66,7 +67,8 @@ class GraphRez {
             preferredWidth: 0.2,
             maxWidth: 0.4,
             color: { red: 93, green: 93, blue: 93 },
-            alpha: 0.5,
+            alpha: 1,
+            zDepth: 0.01,
 
         });
         inputPorts.addElement(new tactile.element.TactileElement({
@@ -74,6 +76,7 @@ class GraphRez {
             maxWidth: 0.1, maxHeight: 0.1,
             color: { red: 0, green: 240, blue: 44 },
             alpha: 1,
+            zDepth: 0.010,
         }));
         portsContainer.addElement(inputPorts);
 
@@ -83,12 +86,14 @@ class GraphRez {
             maxWidth: 0.4,
             color: { red: 93, green: 93, blue: 93 },
             alpha: 0.5,
+            zDepth: 0.01,
         });
         outputPorts.addElement(new tactile.element.TactileElement({
             preferredWidth: 0.1, preferredHeight: 0.1,
             maxWidth: 0.1, maxHeight: 0.1,
             color: { red: 0, green: 44, blue: 240 },
             alpha: 1,
+            zDepth: 0.010,
         }));
         portsContainer.addElement(outputPorts);
 

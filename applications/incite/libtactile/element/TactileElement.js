@@ -83,7 +83,8 @@ class TactileElement {
         this.alignment = options.alignment ?? 'center';
         this.margins = options.margins ?? { top: 0, right: 0, bottom: 0, left: 0 };
         this.visible = options.visible ?? true;
-        this.offsetZ = options.offsetZ ?? 0.1;
+        this.zDepth = options.zDepth ?? 0.1;
+        this.offsetZ = options.offsetZ ?? 0;
 
         this.color = options.color ?? { red: 255, green: 255, blue: 255 }
         this.alpha = options.alpha ?? 1;
@@ -96,6 +97,12 @@ class TactileElement {
 
         this.#valid = false; // Needs recalculating when false
         // Each renderer maintains it's own list of elements which need to be rerendered after updating
+    }
+
+    get absoluteZ() {
+        let z = this.offsetZ+(this.zDepth/2);
+        if (this.parent) z += this.parent.absoluteZ + (this.parent.zDepth/2);
+        return z;
     }
 
     /**
@@ -295,6 +302,17 @@ class TactileElement {
         for (const element of this.elements) {
             yield* element.iterate();
         }
+    }
+
+
+
+    /**
+     * Iterate down through the tree, resolving each branch before the next
+     */
+    *iterateUp() {
+        yield this;
+
+        if (this.parent) yield* parent.iterateUp();
     }
 
     /**

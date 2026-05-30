@@ -179,8 +179,10 @@ class TactileRenderer extends BaseRenderer {
                                           element.cache.absoluteY,
                                           element.cache.width,
                                           element.cache.height,
-                                          (element.offsetZ*element.depth),
+                                          element.absoluteZ,
                                           element.id == 0);
+
+        console.log(`zDepth debug - zdepth: ${element.zDepth}, offsetZ: ${element.offsetZ}, absoluteZ: ${element.absoluteZ}`);
 
         // set default properties
         let properties = { ... DEFAULT_ENTITY_PROPERTIES.All,
@@ -188,7 +190,7 @@ class TactileRenderer extends BaseRenderer {
                             position: position,
                             rotation: this.rootEntityRotation,
                             parentID: element.id == 0 ? "{00000000-0000-0000-0000-000000000000}" : this.rootEntityId,
-                            dimensions: [element.cache.width, element.cache.height, 0.2],
+                            dimensions: [element.cache.width, element.cache.height, element.zDepth],
                             unlit: element.unlit,
         }
 
