@@ -94,6 +94,14 @@ class TactileElement {
         // Each renderer maintains it's own list of elements which need to be rerendered after updating
     }
 
+    /**
+     * The type of this TactileElement
+     * @abstract
+     */
+    get type() {
+        return 'TactileElement';
+    }
+
     get preferredWidth() {
         return this.#cache?.totalWidth ?? this.#preferredWidth;
     }
@@ -349,7 +357,7 @@ class TactileElement {
         this.cache.height = finalHeight;
 
         if (this.elements.length > 0) {
-            for (const child of this.element) {
+            for (const child of this.elements) {
                 child.layout(finalWidth, finalHeight, offsetX, offsetY); // We have no layout, so let the children do whatever within the confines of this element's size.
             }
         }

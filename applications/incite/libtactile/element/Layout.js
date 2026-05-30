@@ -23,6 +23,10 @@ class Layout extends TactileElement {
         this.spacing = options.spacing ?? 0;
     }
 
+    get type() {
+        return 'Layout';
+    }
+
     invalidate() {
         this.cache = null;
         if (this.parentLayout) {

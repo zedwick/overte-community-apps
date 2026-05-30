@@ -16,6 +16,10 @@ class FloatingLayout extends Layout {
 
     }
 
+    get type() {
+        return 'FloatingLayout';
+    }
+
     findAvailablePosition(width, height) {
         const visibleElements = this.visibleElements;
         const placedElements = this.placedElements;

@@ -47,6 +47,10 @@ class TactileDocument extends TactileElement {
 
     }
 
+    get type() {
+        return 'TactileDocument';
+    }
+
     /**
      * The root element; TODO: Should be able to support multiple children...
      */

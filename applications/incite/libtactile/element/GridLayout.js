@@ -27,6 +27,10 @@ class GridLayout extends Layout{
         console.log(`flowDirection: this=${this.flowDirection}, options=${options.flowDirection}`);
     }
 
+    get type() {
+        return 'GridLayout';
+    }
+
     // secondary == flowDirection, primary == predefined limit
     get secondaryDimension() {
         return Math.min(this.visibleElements.length,

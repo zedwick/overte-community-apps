@@ -4,7 +4,7 @@
 //  Copyright 2026 Overte e.V.
 //
 
-const LayoutElement = require("../element/TactileElement.js");
+const TactileElements = require("../element/index.js");
 const BaseRenderer = require("./BaseRenderer.js");
 
 /**
@@ -102,18 +102,17 @@ class TactileRenderer extends BaseRenderer {
     createEntity(element, isRoot, renderType = "local") {
         console.log(`createEntity ... offsetZ=${element.offsetZ}, depth=${element.depth}`);
 
-        const entityProperties = this.entityProperties(element);
-
         console.log(`render element ${this.rendererCount} has a depth of ${element.depth} with offset of ${element.offsetZ} and parent depth of ${element.parent?.depth}`);
         if (isRoot) {
             // this is the root element, save its entityId seperately.
             console.log("Before I create root entity; saving some details...");
             this.dimensions = {x: element.cache.width, y: element.cache.height, z: 0.2};
             console.log(` ... dimensions: ${JSON.stringify(this.dimensions)}`);
-            this.entityOrigin = {x: entityProperties.position.x - (element.cache.width/2), y: entityProperties.position.y - (element.cache.height/2), z: entityProperties.position.z - 0.1}
+            //this.entityOrigin = {x: entityProperties.position.x - (element.cache.width/2), y: entityProperties.position.y - (element.cache.height/2), z: entityProperties.position.z - 0.1}
             console.log(` ... entityOrigin: ${JSON.stringify(this.entityOrigin)}`);
             console.log("...done!");
         }
+        const entityProperties = this.entityProperties(element);
         console.log(`Placing entity ${element.id} (${this.rendererCount}) @ ${JSON.stringify(entityProperties.position)}`);
         const entityId = Entities.addEntity(entityProperties, renderType);
 
@@ -137,21 +136,85 @@ class TactileRenderer extends BaseRenderer {
      * @param {Object} element
      */
     entityProperties(element) {
-        const position = this.TwoToThreeD(element.cache.absoluteX,
-                                          element.cache.absoluteY,
+        console.log("entityProperties - start");
+        const DEFAULT_ENTITY_PROPERTIES = {
+            All: {
+                description: "",
+                rotation: { x: 0, y: 0, z: 0, w: 1 },
+                collidesWith: "static,dynamic,kinematic,otherAvatar,myAvatar",
+                collisionSoundURL: "",
+                cloneable: false,
+                ignoreIK: true,
+                canCastShadow: true,
+                href: "",
+                script: "",
+                serverScripts: "",
+                velocity: {
+                    x: 0,
+                    y: 0,
+                    z: 0
+                },
+                angularVelocity: {
+                    x: 0,
+                    y: 0,
+                    z: 0
+                },
+                restitution: 0.5,
+                friction: 0.5,
+                density: 1000,
+                dynamic: false,
+            },
+            TextElement: {
+                type: "Text",
+                text: "Text",
+                dimensions: {
+                    x: 0.65,
+                    y: 0.3,
+                    z: 0.01
+                },
+                textColor: { red: 255, green: 255, blue: 255 },
+                backgroundColor: { red: 0, green: 0, blue: 0 },
+                lineHeight: 0.06,
+                faceCamera: false,
+            }
+        }
+
+        const position = this.TwoToThreeD(element.cache.x,
+                                          element.cache.y,
                                           element.cache.width,
                                           element.cache.height,
                                           (element.offsetZ*element.depth),
                                           element.id == 0);
 
-        return {
-            type: "Box",
-            name: `Tactile Element ${element.id} (${this.rendererCount})`,
-            position: position,
-            rotation: this.rootEntityRotation,
-            parentID: element.id == 0 ? "{00000000-0000-0000-0000-000000000000}" : this.rootEntityId,
-            dimensions: [element.cache.width, element.cache.height, 0.2],
+        // set default properties
+        let properties = { ... DEFAULT_ENTITY_PROPERTIES.All,
+                            name: `Tactile Element ${element.id} (${this.rendererCount})`,
+                            position: position,
+                            rotation: this.rootEntityRotation,
+                            parentID: element.id == 0 ? "{00000000-0000-0000-0000-000000000000}" : this.rootEntityId,
+                            dimensions: [element.cache.width, element.cache.height, 0.2],
         }
+
+        console.log("entityProperties - switch time!");
+
+        console.log("element.type is", element.type);
+
+        // Add variant-specific properties
+        switch(element.type) {
+            case 'TextElement':
+                console.log("entityProperties - TextElement!");
+                properties = { ... properties, ... DEFAULT_ENTITY_PROPERTIES.TextElement }
+                properties.text = element.text;
+                break;
+            default:
+                console.log("entityProperties - default!")
+                properties.type = "Box";
+                break;
+        }
+
+        console.log("entityProperties - I switched.");
+
+        return properties;
     }
 
     /**
@@ -185,14 +248,23 @@ class TactileRenderer extends BaseRenderer {
                 height = 0,
                 offsetZ = 0,
                 isRoot = false) {
+        // true origin
         const rootPosition = this.rootPosition;
-        const originX = rootPosition.x +(this.dimensions.x/2);
+
+        // Adjusted origin
+        // 2D elements are positioned by their top left corner, whilst 3D entities are positioned by their center;
+        //
+        const originX = rootPosition.x -(this.dimensions.x/2);
         const originY = rootPosition.y +(this.dimensions.y/2);
-        offsetZ = rootPosition.z - offsetZ;
+
+        // Offset from origin
+        offsetZ = rootPosition.z + offsetZ;
+
         print(`TwoToThreeD .. x=${x}, y=${y}, originX=${originX}, originY=${originY}, offsetZ=${offsetZ}, width=${width}, height=${height}, isRoot=${isRoot}`);
+
         return {
-            x: (-x) * this.scale + originX - (isRoot ? 0 : width/2),
-            y: (-y) * this.scale + originY - (isRoot ? 0 : height/2), // NOTE: If we need to use this for the root element position after the very first time, this could be wrong
+            x: (x) * this.scale + originX + (width/2),
+            y: (-y) * this.scale + originY - (height/2), // NOTE: If we need to use this for the root element position after the very first time, this could be wrong
             z: offsetZ, // Bring forward based on depth
         };
     }

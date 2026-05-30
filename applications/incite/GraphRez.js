@@ -35,7 +35,9 @@ class GraphRez {
     }
 
     onNodeAdded(graphId, nodeId) {
+        const node = this.graph.getNode(nodeId);
         const element = new tactile.element.TactileElement({ minWidth: 0.5 });
+        element.addElement(new tactile.element.TextElement({ text: node.type }));
         this.document.root.addElement(element); // TODO Build an element for the type of node
         // Store elementId by the nodeId;
         this.#nodeElementMap.set(nodeId, element.id);
@@ -52,7 +54,7 @@ class GraphRez {
         // Clean up document TODO
         this.document.cleanup();
 
-        this.GraphRezEnding.emit(this.id, this.graph.id);
+        this.graphRezEnding.emit(this.id, this.graph.id);
     }
 
     /**
