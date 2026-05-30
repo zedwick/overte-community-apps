@@ -158,7 +158,7 @@ class FloatingLayout extends Layout {
             const width = dimensions.width;
             const height = dimensions.height;
 
-            totalArea += (width + this.spacing) * (height + this.spacing);
+            totalArea += (width + this.spacing + this.margins.left + this.margins.right) * (height + this.spacing + this.margins.top + this.margins.bottom);
         });
 
         // Scale up totalArea to allow for a bit more space
