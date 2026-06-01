@@ -4,6 +4,8 @@
 //  Copyright 2026 Overte e.V.
 //
 
+const Signal = require("../../libincite/Signal.js");
+
 /**
  * @typedef {object} GeometryCache
  * @property {number} x - x position relative to the parent
@@ -27,6 +29,7 @@
  *
  * @property {number} id - The unique id of this element
  * @property {number} depth - the depth of this element with the document tree
+ * @property {number} documentId - The ID of the document this element is attached to.
  * @property {array<object>} elements - The list of child elements within this element
  * @property {number} mindWidth - the minimum width this element should be
  * @property {number} minHeight - the minimum heigh this element should be
@@ -97,6 +100,10 @@ class TactileElement {
 
         this.#valid = false; // Needs recalculating when false
         // Each renderer maintains it's own list of elements which need to be rerendered after updating
+    }
+
+    get documentId() {
+        return this.parent?.documentId;
     }
 
     get absoluteZ() {
@@ -388,6 +395,40 @@ class TactileElement {
 
         this.valid = true;
     }
+
+    // Signals
+
+    /**
+     * Triggered when a mouse button is clicked while the mouse cursor is on this element, or a controller trigger is fully pressed while its laser is on this element.
+     */
+    elementPressed = new Signal("ElementPressed");
+
+    /**
+     * Triggered when the mouse cursor or controller laser starts hovering on this element.
+     */
+    elementHoverStarted = new Signal("ElementHoverStarted");
+
+    /**
+     * Triggered when the mouse cursor or controller laser stops hovering over this element.
+     */
+    elementHoverStopped = new Signal("ElementHoverStopped");
+
+    /**
+     * Triggered when a mouse button is released after clicking on this element or the controller trigger is partly or fully released after pressing on this element, even if the mouse pointer or controller laser has moved off the element.
+     */
+    elementReleased = new Signal("ElementReleased");
+
+    /**
+     * Triggered when the mouse cursor or controller laser scrolls over this element.
+     */
+    elementScroll = new Signal("ElementScroll");
+
+//     hoverOverEntity
+//
+//     mouseMoveOnEntity
+
+
+
 }
 
 module.exports = TactileElement;

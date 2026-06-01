@@ -19,6 +19,8 @@ const Signal = require("../../libincite/Signal.js");
  */
 class TactileDocument extends TactileElement {
 
+    #documentId
+
 
     constructor(options) {
         super(options);
@@ -47,6 +49,23 @@ class TactileDocument extends TactileElement {
 
         this._elementMap.set(0, this);
 
+    }
+
+    getElement(elementId) {
+        return this._elementMap.get(elementId);
+    }
+
+    get documentId() {
+        return this.#documentId;
+    }
+
+    set documentId(newId) {
+        if (this.#documentId) {
+            console.warn("TactileDocument documentId cannot be changed.");
+        } else {
+            this.#documentId = newId;
+        }
+        return this.#documentId;
     }
 
     get type() {

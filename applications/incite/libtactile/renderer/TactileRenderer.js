@@ -6,6 +6,13 @@
 
 const TactileElements = require("../element/index.js");
 const BaseRenderer = require("./BaseRenderer.js");
+const documentManager = require("../TactileStore.js").documentManager;
+
+/**
+ * @typedef {object} DocumentElementIds
+ * @property {number} documentId
+ * @property {number} elementId
+ */
 
 /**
  * Render TactileElements to an Overte world
@@ -14,8 +21,11 @@ const BaseRenderer = require("./BaseRenderer.js");
  * @property {number} scale - The scale at which to render elements
  * @property {Vec3} originOffset
  * @property {Quant} orientation
- * @property {map} entityMap - entityId, elementId
- * @property {vec3} position
+ * @property {Map} entityMap - entityId, elementId
+ * @property {Map} elementMap
+ * @property {Map} clickableElementMap
+ * @property {Map<string,DocumentElementIds>} entityToDocumentAndElementIds
+ * @property {Vec3} position
  * @property {Quant} rotation
  * @property {Vec3} dimensions
  * @property {number} rootWidth
@@ -37,6 +47,11 @@ class TactileRenderer extends BaseRenderer {
         this.originOffset = options.originOffset ?? { x: 0, y: 0, z: 0 };
         this.orientation = options.orientation ?? { x: 0, y: 0, z: 0, w: 1 };
         this.entityMap = new Map();
+        this.elementMap = new Map();
+
+        this.clickableElementMap = new Map();
+
+        this.entityToDocumentAndElementIds = new Map() // entityId: { documentId, elementId }
 
         this.position = options.position ?? { x: 0, y: 0, z: 0 };
         this.rotation = options.rotation ?? { x: 0, y: 0, z: 0, w: 1 };
@@ -44,12 +59,68 @@ class TactileRenderer extends BaseRenderer {
         this.rootWidth = 0;
         this.rootHeight = 0;
 
+        this.subscribe();
+
         Script.scriptEnding.connect(() => {
             this.cleanup();
             console.log("TactileRenderer ended.");
         });
 
         this.rendererCount = 0;
+    }
+
+    subscribe() {
+        Entities.mousePressOnEntity.connect(this.onMousePressOnEntity.bind(this));
+        Entities.hoverEnterEntity.connect(this.onHoverEnterEntity.bind(this));
+        Entities.hoverLeaveEntity.connect(this.onHoverLeaveEntity.bind(this));
+        Entities.mouseReleaseOnEntity.connect(this.onMouseReleaseOnEntity.bind(this));
+        Entities.scrollOnEntity.connect(this.onScrollOnEntity.bind(this));
+    }
+
+    getElementFromEntityId(entityId) {
+        const documentElementIds = this.entityToDocumentAndElementIds.get(entityId);
+        if (!documentElementIds) return;
+        const documentId = documentElementIds.documentId;
+        const elementId = documentElementIds.elementId;
+        if (typeof documentId == 'undefined' || typeof elementId == 'undefined') {
+            console.warn("Received a DocumentElementId from TactileRenderer, but the data was incomplete.", documentId, elementId);
+            return;
+        }
+        const document = documentManager.getDocument(documentId);
+        return document.getElement(elementId);
+    }
+
+    onMousePressOnEntity(entityId, pointerEvent) {
+        if (!pointerEvent.isPrimaryButton) return;
+        const element = this.getElementFromEntityId(entityId);
+        if (!(element instanceof TactileElements.TactileElement)) return;
+        element.elementPressed.emit(element.documentId, element.id);
+    }
+
+    onHoverEnterEntity(entityId, pointerEvent) {
+        const element = this.getElementFromEntityId(entityId);
+        if (!(element instanceof TactileElements.TactileElement)) return;
+        element.elementHoverStarted.emit(element.documentId, element.id);
+    }
+
+    onHoverLeaveEntity(entityId, pointEvent) {
+        const element = this.getElementFromEntityId(entityId);
+        if (!(element instanceof TactileElements.TactileElement)) return;
+        element.elementHoverStopped.emit(element.documentId, element.id);
+    }
+
+    onMouseReleaseOnEntity(entityId, pointerEvent) {
+        if (!pointerEvent.isPrimaryButton) return;
+
+        const element = this.getElementFromEntityId(entityId);
+        if (!(element instanceof TactileElements.TactileElement)) return;
+        element.elementReleased.emit(element.documentId, element.id);
+    }
+
+    onScrollOnEntity(entityId, pointEvent) {
+        const element = this.getElementFromEntityId(entityId);
+        if (!(element instanceof TactileElements.TactileElement)) return;
+        element.elementScroll.emit(element.documentId, element.id);
     }
 
     get rootEntityId() {
@@ -74,15 +145,19 @@ class TactileRenderer extends BaseRenderer {
     }
 
     addElement(layoutElement, entityId) {
+        this.entities.push(entityId);
         this.entityMap.set(layoutElement.id, entityId);
+        this.elementMap.set(entityId, layoutElement.id);
         return this;
     }
 
     removeElement(layoutElementOrId) {
-        const id = layoutElementOrId instanceof LayoutElement.id ?? layoutElementOrId;
-        Entities.deleteEntity(this.entityMap.get(id));
+        const id = layoutElementOrId instanceof LayoutElement.id ?? layoutElementOrId; // TODO What??
+        const entityId = this.entityMap.get(id);
+        Entities.deleteEntity(entityId);
         this.entities.delete(id);
         this.entityMap.delete(id);
+        this.elementMap.delete(entityId);
         return this;
     }
 
@@ -120,6 +195,11 @@ class TactileRenderer extends BaseRenderer {
         // Store entities for later
         this.entities.push(entityId);
         this.entityMap.set(element.id, entityId);
+        this.elementMap.set(entityId, element.id);
+        this.entityToDocumentAndElementIds.set(entityId, {
+            documentId: element.documentId,
+            elementId: element.id,
+        })
 
         if (isRoot) {
             // this is the root element, save its entityId seperately.
@@ -171,6 +251,9 @@ class TactileRenderer extends BaseRenderer {
                 majorGridEvery: 1,
                 minorGridEvery: 0.2,
             },
+            LineElement: {
+                type: "PolyLine",
+            },
             TextElement: {
                 type: "Text",
                 text: "Text",
@@ -220,6 +303,23 @@ class TactileRenderer extends BaseRenderer {
                 console.log("entityProperties - GridElement!");
                 properties = { ... properties, ... DEFAULT_ENTITY_PROPERTIES.GridElement }
 
+                break;
+            case 'LineElement':
+                console.log("entityProperties - LineElement!");
+                properties = { ... properties, ... DEFAULT_ENTITY_PROPERTIES.LineElement };
+                properties.linePoints = element.linePoints.map(point => {
+                    return {
+                        x: point.x - element.parent.cache.width/2,
+                        y: element.parent.cache.height/2 - point.y,
+                        z: point.z
+                    }
+                });
+                properties.normals = element.normals;
+                properties.strokeWidths = element.strokeWidths;
+                properties.textures = element.textures;
+                properties.isUVModeStretch = element.isUVModeStretch;
+                properties.glow = element.glow;
+                properties.faceCamera = element.faceCamera;
                 break;
             default:
                 console.log("entityProperties - default!")

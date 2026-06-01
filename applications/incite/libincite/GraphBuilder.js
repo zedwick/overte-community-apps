@@ -35,17 +35,17 @@ class GraphBuilder {
     }
 
     addNodes(nodes) {
-        this._nodes.push(nodes);
+        this._nodes.push(...nodes);
         return this;
     }
 
     addConnection(connection) {
-        this._nodes.push(connection);
+        this._connections.push(connection);
         return this;
     }
 
     addConnections(connections) {
-        this._nodes.push(connections);
+        this._connections.push(...connections);
         return this;
     }
 
@@ -55,7 +55,7 @@ class GraphBuilder {
     }
 
     addAssertions(assertions) {
-        this._assertions.push(assertions);
+        this._assertions.push(...assertions);
         return this;
     }
 

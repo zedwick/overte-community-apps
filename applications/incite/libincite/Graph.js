@@ -62,9 +62,15 @@ class Graph {
 
     /**
      * An array of connections between nodes
-     * @type {GraphJson-Connection}
+     * @type {array<GraphJson-Connection>}
      */
     #connections
+
+    /**
+     * A map of connection
+     * @type {map<number, GraphJson-Connection>}
+     */
+    #connectionsById
 
     /**
      * An array of Assertions made about the values of specific nodes after graph execution
@@ -120,6 +126,10 @@ class Graph {
         }
         this.graphUpdatedEvent.emit(this.id, new Set(this.#nodes));
         this.#connections = data.connections ?? [];
+        this.#connectionsById = new Map();
+        this.#connections.forEach((connection, index) => {
+            this.#connectionsById.set(index, connection);
+        })
         this.#assertions = data.assertions ?? [];
 
         this.#valid = this.validateGraph(); // We validate, but we do not judge
@@ -199,9 +209,34 @@ class Graph {
         this.#nodes.delete(node);
         this.#nodesById.delete(nodeId);
         this.#availableIds.add(nodeId);
-        this.NodeDeletedEvent.emit(this.id, nodeId); // TODO: Only emit if successfully removed
+        this.nodeDeletedEvent.emit(this.id, nodeId); // TODO: Only emit if successfully removed
         this.updateData();
         this.graphUpdatedEvent.emit(this.id, new Set([id]));
+    }
+
+    addConnection(connection) {
+        //const id = this.#availableIds.length > 0 ? this.#availableIds.pop() : this.#nextId++;
+        const id = this.#connections.push(connection) - 1;
+        this.#connectionsById.set(id, connection);
+
+        this.connectionAddedEvent.emit(this.id, id);
+
+        this.#valid = this.validateGraph();
+    }
+
+    getConnection(connectionId) {
+        return this.#connectionsById.get(connectionId);
+    }
+
+    deleteConnection(connectionId) {
+        const connection = this.#connectionsById.get(connectionId);
+        this.#connections.delete(connection);
+        this.#connectionsById.delete(connectionId);
+        this.#availableIds.add(nodeId);
+
+        this.connectionDeletedEvent.emit(this.id, nodeId);
+
+        this.#valid = this.validateGraph();
     }
 
     /**
@@ -524,16 +559,30 @@ class Graph {
     /**
      * Emitted when a new node is added to this graph.
      *
-     * @type Signal<(nodeId: number, graphId: number) => void>
+     * @type Signal<(graphId: number, nodeId: number) => void>
      */
     nodeAddedEvent = new Signal("NodeAddedEvent");
 
     /**
      * Emitted when a node is removed from this graph.
      *
-     * @type Signal<(nodeId: number, graphId: number) => void>
+     * @type Signal<(graphId: number, nodeId: number) => void>
      */
     nodeRemovedEvent = new Signal("NodeRemovedEvent");
+
+    /**
+     * Emitted when a new connection is added to this graph.
+     *
+     * @type Signal<(graphId: number, connectionId: number) => void>
+     */
+    connectionAddedEvent = new Signal("NodeAddedEvent");
+
+    /**
+     * Emitted when a connection is removed from this graph.
+     *
+     * @type Signal<(graphId: number, connectionId: number) => void>
+     */
+    connectionRemovedEvent = new Signal("NodeRemovedEvent");
 
     /**
      * Emits when this graph is deleted.
@@ -553,7 +602,7 @@ class Graph {
      *
      * @type Signal<(graphId: number, changedNodes: Set<Node>) => void>
      */
-    graphUpdatedEvent = new Signal("GraphUpdatedEvent"); // TODO
+    graphUpdatedEvent = new Signal("GraphUpdatedEvent"); // TODO this should represent all changes, not just node additions/deletions.
 
     /**
      * Emits when a node on this graph has updated or changed.

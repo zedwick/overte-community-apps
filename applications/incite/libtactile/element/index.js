@@ -9,6 +9,7 @@ const FloatingLayout = require('./FloatingLayout.js');
 const GridElement = require('./GridElement.js');
 const GridLayout = require('./GridLayout.js');
 const Layout = require('./Layout.js');
+const LineElement = require('./LineElement.js');
 const RowLayout = require('./RowLayout.js');
 const TactileDocument = require('./TactileDocument.js');
 const TactileElement = require('./TactileElement.js');
@@ -20,6 +21,7 @@ module.exports = {
     GridElement,
     GridLayout,
     Layout,
+    LineElement,
     RowLayout,
     TactileDocument,
     TactileElement,
