@@ -53,6 +53,7 @@ const Signal = require("../../libincite/Signal.js");
 class TactileElement {
 
     #cache
+    #color
     #minWidth
     #minHeight
     #preferredWidth
@@ -89,7 +90,7 @@ class TactileElement {
         this.zDepth = options.zDepth ?? 0.1;
         this.offsetZ = options.offsetZ ?? 0;
 
-        this.color = options.color ?? { red: 255, green: 255, blue: 255 }
+        this.#color = options.color ?? { red: 255, green: 255, blue: 255 }
         this.alpha = options.alpha ?? 1;
         this.unlit = options.unlit ?? false;
 
@@ -134,6 +135,15 @@ class TactileElement {
 
     get minHeight() {
         return this.#cache?.minHeight ?? this.#minHeight;
+    }
+
+    get color() {
+        return this.#color;
+    }
+
+    set color(color) {
+        this.#color = color;
+        this.valid = false;
     }
 
     // TODO: Make this a clearly defined class structure
